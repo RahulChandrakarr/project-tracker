@@ -1,0 +1,50 @@
+---
+description: Scalability, performance, and data-fetching rules.
+alwaysApply: true
+---
+
+# Performance & Scalability
+
+## Server-first
+
+- Default to React Server Components. Only add `"use client"` if the file uses `useState`, `useEffect`, event handlers, refs, or browser APIs.
+- Push `"use client"` as far down the tree as possible. A client `<SearchBox />` inside a server `<Page />` is correct. A client `<Page />` wrapping everything is wrong.
+- Data fetching happens in Server Components. Pass plain props down to client components.
+
+## Bundling
+
+- Import only what you need: `import { Plus } from "lucide-react"` not `import * as Icons`.
+- No barrels (`index.ts` re-export files). They defeat tree-shaking.
+- Heavy client-only widgets: dynamic-import them — `const Chart = dynamic(() => import("./chart"), { ssr: false })`.
+- Don't ship date libraries (moment, dayjs) for trivial formatting. Use `Intl.DateTimeFormat` via [src/lib/format.ts](mdc:src/lib/format.ts).
+
+## Rendering
+
+- Lists must have stable string keys (use the entity `id`, never `index`).
+- Don't `JSON.stringify` in a key.
+- Memoize **only** with evidence. Premature `useMemo` / `useCallback` adds noise.
+- For long lists (>200 rows), virtualize. Don't paginate by re-fetching small pages from the client.
+
+## Images
+
+- Always `next/image`. Specify `width` and `height` (or `fill` with a sized parent).
+- Above-the-fold logos / heroes get `priority`. Everything else lazy by default.
+
+## Caching & data
+
+- Server Components fetch data directly. Use `cache: "force-cache"` for static-ish data, `cache: "no-store"` only when you need fresh-every-request.
+- Do **not** create API routes for data your own server can fetch directly. Route handlers are for webhooks, third-party callbacks, and client-mutations — not as a proxy to your own data layer.
+- Mutations go through Server Actions, not `fetch("/api/...")`.
+
+## TypeScript
+
+- `strict: true` already. Don't disable it locally.
+- Public exports must have explicit return types. Internal helpers can infer.
+- One source of truth for shared shapes — put them in [src/types/](mdc:src/types). Don't redeclare in components.
+
+## Anti-patterns to refuse
+
+- Adding a state manager (Redux, Zustand) before the app has shared mutable state across distant trees.
+- Wrapping every component in `memo()`.
+- Creating an `api/` folder for every page.
+- Catch-all `try/catch` blocks that swallow errors. Throw, and let `error.tsx` handle it.

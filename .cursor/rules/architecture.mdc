@@ -1,0 +1,73 @@
+---
+description: Project structure, file conventions, and where new code goes.
+alwaysApply: true
+---
+
+# Projects Tracker — Architecture
+
+Next.js 16 (App Router) + React 19 + Tailwind v4 + shadcn/ui (new-york) + Supabase (Postgres + Auth).
+TypeScript strict mode. Server Components by default. Server Actions for mutations.
+
+## Next.js 16 gotchas (different from training data)
+
+- **Middleware was renamed to Proxy.** The file is [proxy.ts](mdc:proxy.ts) (project root), and the export is `proxy()` not `middleware()`.
+- **`cookies()`, `headers()`, `draftMode()` are async.** Always `await` them.
+- Proxy is not for data fetching or full auth. Use it for cookie refresh + optimistic gates only. Real auth lives in Server Components.
+- Read [AGENTS.md](mdc:AGENTS.md). Check `node_modules/next/dist/docs/` before using an API you're unsure about.
+
+## Folder layout
+
+```
+src/
+  app/
+    layout.tsx              # Root <html><body> only. No app shell here.
+    globals.css             # B&W theme tokens.
+    (app)/                  # Authenticated routes. Layout enforces auth + renders AppShell.
+      layout.tsx
+      page.tsx              # Dashboard.
+      <segment>/page.tsx
+      <segment>/_components/
+    (auth)/                 # Public routes for login/signup. No app shell.
+      layout.tsx
+      login/page.tsx
+      signup/page.tsx
+    auth/callback/route.ts  # Supabase code exchange.
+  components/
+    ui/                     # shadcn primitives. Owned by us — edit freely.
+    layout/                 # App shell: sidebar, header, app-shell.
+    auth/                   # Login/signup forms, auth card.
+    <feature>/              # Reusable feature components (projects/, ...).
+  lib/
+    utils.ts                # cn() only.
+    format.ts               # Date helpers. No deps.
+    supabase/               # Clients (server, client, proxy), types, env guard.
+    auth/                   # Auth Server Actions.
+    <feature>/              # Server-only queries + Server Action mutations per feature.
+  hooks/                    # Reusable React hooks (`use-*.ts`).
+  types/                    # Shared TS types and label maps.
+supabase/
+  migrations/               # SQL migrations. Sequential, never edit a shipped one.
+proxy.ts                    # Edge proxy (was `middleware.ts`).
+```
+
+## Rules
+
+- **One component per file.** Filename matches the default export (`kebab-case.tsx`).
+- **Server by default.** Add `"use client"` only when you need state, effects, refs, or browser APIs. Push it as far down the tree as possible.
+- **Imports:** always use `@/` alias. Order: react/next → third-party → `@/` → relative.
+- **No barrels** (`index.ts` re-exports). Import the file directly.
+- **Colocate, but only once.** A component used by exactly one route lives in `app/<segment>/_components/`. A component used by 2+ routes goes to `components/<feature>/`.
+- **Routes are thin.** `page.tsx` composes components and fetches data. Business logic lives in `lib/<feature>/`.
+- **No `any`.** No `as` casts unless commented with why. Prefer `unknown` + narrowing.
+- **`server-only` import** at the top of any module that should never reach the browser bundle (queries, anything reading the service-role key).
+
+## Paths
+
+| Task | Where it goes |
+|---|---|
+| New route | `app/(app)/<segment>/page.tsx` (or `(auth)/` for public) |
+| Route-only piece | `app/<segment>/_components/<name>.tsx` |
+| Shared feature UI | `components/<feature>/<name>.tsx` |
+| Data fetching | `lib/<feature>/queries.ts` (`import "server-only"`) |
+| Mutation | `lib/<feature>/mutations.ts` (`"use server"`) |
+| Database change | `supabase/migrations/NNNN_<slug>.sql` (next number, never edit old ones) |

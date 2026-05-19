@@ -1,0 +1,45 @@
+---
+description: UI, styling, and theming rules. Applies to anything visual.
+globs: src/**/*.tsx,src/**/*.css
+alwaysApply: true
+---
+
+# UI Rules
+
+## Theme: black & white only
+
+This project uses a **strict grayscale theme**. No hues. Ever.
+
+- All colors are defined as OKLCH grayscale variables in [src/app/globals.css](mdc:src/app/globals.css).
+- Use the semantic tokens, not raw hex or Tailwind palette colors:
+  - `bg-[var(--color-background)]`, `bg-[var(--color-card)]`, `bg-[var(--color-muted)]`, `bg-[var(--color-primary)]`
+  - `text-[var(--color-foreground)]`, `text-[var(--color-muted-foreground)]`, `text-[var(--color-primary-foreground)]`
+  - `border-[var(--color-border)]`
+- **Banned:** `bg-blue-*`, `text-red-*`, `bg-zinc-50`, `dark:bg-black`, any hex like `#0ea5e9`. If you need emphasis, use weight, size, or contrast — not color.
+- Destructive states use a darker gray, not red. Success uses a filled badge, not green.
+
+## shadcn/ui
+
+- Components live in [src/components/ui/](mdc:src/components/ui). They are **ours** — edit them freely, don't fork into wrappers.
+- New shadcn components go in `src/components/ui/<name>.tsx` using the `new-york` style ([components.json](mdc:components.json)).
+- All shadcn variants must use the semantic tokens above. If a default shadcn snippet pastes `bg-primary text-primary-foreground`, rewrite it to `bg-[var(--color-primary)] text-[var(--color-primary-foreground)]`.
+- Use `cn()` from [src/lib/utils.ts](mdc:src/lib/utils.ts) for class merging. Never `clsx` or template strings directly.
+
+## Composition
+
+- Build pages from feature components, not inline JSX. If a `page.tsx` exceeds ~80 lines, extract.
+- Tables, lists, and stat groups go in `components/<feature>/`.
+- Icons: `lucide-react` only. Size them via the `[&_svg]:size-4` pattern already in Button — don't pass `size` prop unless deviating.
+
+## Typography & spacing
+
+- Headings: `text-2xl font-semibold tracking-tight` (page), `text-base font-semibold tracking-tight` (section).
+- Body: `text-sm`. Muted secondary: `text-sm text-[var(--color-muted-foreground)]`.
+- Spacing scale: 4 / 6 / 8 only (`gap-4`, `gap-6`, `gap-8`, `p-4`, `p-6`). Don't invent `p-7`.
+- Borders: 1px, `border-[var(--color-border)]`. No shadows beyond `shadow-sm`.
+
+## Accessibility
+
+- Every interactive element must reach `focus-visible`.
+- Color-only state is forbidden (we don't have colors anyway). Use icons + labels for status.
+- All images need `alt`. Decorative images use `alt=""`.

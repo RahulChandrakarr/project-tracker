@@ -1,0 +1,91 @@
+---
+description: Supabase, Auth, and data-access rules. Apply to anything touching the database.
+globs: src/lib/supabase/**,src/lib/**/queries.ts,src/lib/**/mutations.ts,src/lib/auth/**,supabase/**,proxy.ts
+alwaysApply: true
+---
+
+# Supabase Rules
+
+## Client picker
+
+Three client factories — use the right one:
+
+| File | When | Cookies |
+|---|---|---|
+| [src/lib/supabase/server.ts](mdc:src/lib/supabase/server.ts) | Server Components, Server Actions, Route Handlers | `next/headers` cookies (async) |
+| [src/lib/supabase/client.ts](mdc:src/lib/supabase/client.ts) | Client Components needing realtime / browser auth state | Document cookies |
+| [src/lib/supabase/proxy.ts](mdc:src/lib/supabase/proxy.ts) | Only `proxy.ts` at project root, for session refresh | Request/response cookies |
+
+**Don't import the browser client in a Server Component.** Don't import the server client in a Client Component.
+
+## Auth — where it's enforced
+
+1. **Proxy** ([proxy.ts](mdc:proxy.ts)) — optimistic redirect for unauthenticated users. Not authoritative.
+2. **Route layout** ([src/app/(app)/layout.tsx](mdc:src/app/(app)/layout.tsx)) — `await supabase.auth.getUser()` and `redirect("/login")` if absent. This is the real gate.
+3. **RLS in Postgres** — the final authority. Every table must have RLS enabled and policies that scope rows to `auth.uid()`. See [supabase/migrations/0001_init.sql](mdc:supabase/migrations/0001_init.sql).
+
+Never rely on (1) or (2) alone. Defense in depth: even if a layout check is missed, RLS keeps data safe.
+
+## Data access pattern
+
+- **Reads** → `src/lib/<feature>/queries.ts` with `import "server-only"` at the top. Returns plain typed data. Throws on error.
+- **Writes** → `src/lib/<feature>/mutations.ts` with `"use server"` at the top. Validates with Zod, then writes, then calls `revalidatePath()`.
+- Server Actions take `(prevState, formData)` and return a `FormState` shape (`{ ok, message?, fieldErrors? }`) so client components can drive them with `useActionState`.
+- **Never call `fetch("/api/...")` from a client component to hit your own data.** Call a Server Action or move the read to the parent Server Component.
+
+## Roles
+
+Two layers of role, both enforced in RLS:
+
+1. **Global** — `profiles.role` is `'admin' | 'member'`. Admin sees everything.
+2. **Per-project** — `project_members.role` is `'admin' | 'member'`. Project admins can manage their own project's members and tasks.
+
+The current user's roles are exposed via [src/lib/auth/current-user.ts](mdc:src/lib/auth/current-user.ts):
+- `getCurrentUser()` → `{ id, email, role, fullName }`
+- `getProjectRole(projectId)` → `{ role: 'admin' | 'member', viaAppAdmin }` or `null`
+
+Use these in Server Components to decide whether to render management UI. **Don't rely on hiding UI for security** — RLS in Postgres is the real gate.
+
+## RLS rules
+
+- Every new table must `enable row level security` immediately in the same migration.
+- **Avoid recursion.** A policy that checks the same table it's protecting (e.g. a `project_members` policy that reads `project_members`) recurses. Use a `SECURITY DEFINER` helper function — RLS is bypassed inside the function body. See the `is_app_admin`, `is_project_member`, `is_project_admin` helpers in [0002_team_tasks.sql](mdc:supabase/migrations/0002_team_tasks.sql).
+- **Order matters for `language sql` helpers.** Postgres validates `sql` function bodies at creation time, so the tables they reference must already exist. Either create the tables first, or use `language plpgsql` (lazy parse).
+- Default policy shape for a single-owner table:
+  ```sql
+  create policy "<verb> own rows" on public.<table>
+    for <select|insert|update|delete>
+    using (auth.uid() = owner_id)
+    with check (auth.uid() = owner_id);
+  ```
+- Default policy shape for a project-scoped table:
+  ```sql
+  create policy "Members can view" on public.<table>
+    for select to authenticated
+    using (
+      public.is_app_admin(auth.uid())
+      or public.is_project_member(project_id, auth.uid())
+    );
+  ```
+- Always test with the anon key before shipping. A query that "just works" with the service-role key but fails for the anon key means RLS is wrong.
+
+## Service-role key
+
+- Only in scripts run on your machine (seeds, one-off backfills).
+- Never imported anywhere under `src/` unless explicitly server-only and never reachable via a request.
+- Not in `NEXT_PUBLIC_*` — it would leak to the browser.
+
+## Migrations
+
+- Append-only. Once a migration is in `main`, do not edit it. Add a new one.
+- Naming: `NNNN_<slug>.sql`, zero-padded sequence number.
+- Every schema change includes its RLS policies in the same file.
+
+## Type safety
+
+- Database types live in [src/lib/supabase/types.ts](mdc:src/lib/supabase/types.ts).
+- Once a Supabase project is linked, regenerate with:
+  ```
+  supabase gen types typescript --linked > src/lib/supabase/types.ts
+  ```
+- Use the `Tables<"name">`, `InsertDto<"name">`, `UpdateDto<"name">` helpers — don't redeclare row shapes by hand in components.
