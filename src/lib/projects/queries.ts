@@ -5,6 +5,19 @@ import type { Tables } from "@/lib/supabase/types";
 
 export type Project = Tables<"projects">;
 
+/**
+ * Filter predicate for the `?category=` param: "" (or undefined) = all,
+ * "none" = uncategorised, otherwise match the category id.
+ */
+export function matchesCategory(
+  project: Pick<Project, "category_id">,
+  filter: string | undefined,
+): boolean {
+  if (!filter) return true;
+  if (filter === "none") return project.category_id === null;
+  return project.category_id === filter;
+}
+
 export async function listProjects(): Promise<Project[]> {
   const supabase = await createSupabaseServerClient();
 

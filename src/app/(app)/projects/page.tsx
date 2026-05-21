@@ -1,17 +1,25 @@
 import { Suspense } from "react";
 
+import { CategoryFilter } from "@/components/projects/category-filter";
 import { ProjectsTable } from "@/components/projects/projects-table";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
-import { listProjects } from "@/lib/projects/queries";
+import { listProjects, matchesCategory } from "@/lib/projects/queries";
 import { listCategories } from "@/lib/categories/queries";
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const { category } = await searchParams;
+
   const [projects, categories] = await Promise.all([
     listProjects(),
     listCategories(),
   ]);
 
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
+  const filtered = projects.filter((p) => matchesCategory(p, category));
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -22,15 +30,17 @@ export default async function ProjectsPage() {
             Every client project, sortable and filterable.
           </p>
         </div>
-        <Suspense fallback={null}>
-          <NewProjectDialog categories={categories} />
-        </Suspense>
+        <div className="flex items-center gap-3">
+          <Suspense fallback={null}>
+            <CategoryFilter categories={categories} value={category ?? ""} />
+          </Suspense>
+          <Suspense fallback={null}>
+            <NewProjectDialog categories={categories} />
+          </Suspense>
+        </div>
       </div>
 
-      <ProjectsTable
-        projects={projects}
-        categoryNameById={categoryNameById}
-      />
+      <ProjectsTable projects={filtered} categoryNameById={categoryNameById} />
     </div>
   );
 }
