@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,9 +13,9 @@ import type { MemberReport as MemberReportData } from "@/lib/profile/queries";
 import { TASK_STATUS_LABEL } from "@/types/project";
 import { formatDate } from "@/lib/format";
 
-export function MemberReport({ report }: { report: MemberReportData }) {
-  const maxWeek = Math.max(1, ...report.weeks.map((w) => w.completed));
+import { ProductivityChart } from "./productivity-chart";
 
+export function MemberReport({ report }: { report: MemberReportData }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -42,52 +41,9 @@ export function MemberReport({ report }: { report: MemberReportData }) {
         />
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle>Weekly productivity</CardTitle>
-              <CardDescription>
-                Tasks completed per week over the last {report.weeks.length}{" "}
-                weeks.
-              </CardDescription>
-            </div>
-            <GrowthBadge
-              thisWeek={report.completedThisWeek}
-              lastWeek={report.completedLastWeek}
-              growthRate={report.growthRate}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end justify-between gap-2">
-            {report.weeks.map((w) => {
-              const height =
-                w.completed === 0
-                  ? 2
-                  : Math.max(6, Math.round((w.completed / maxWeek) * 96));
-              return (
-                <div
-                  key={w.weekStart}
-                  className="flex flex-1 flex-col items-center gap-2"
-                >
-                  <div className="text-xs font-medium tabular-nums text-[var(--color-muted-foreground)]">
-                    {w.completed}
-                  </div>
-                  <div
-                    className="w-full max-w-10 rounded-t bg-[var(--color-primary)]"
-                    style={{ height: `${height}px` }}
-                    title={`Week of ${w.label}: ${w.completed} completed, ${w.created} added`}
-                  />
-                  <div className="text-[10px] text-[var(--color-muted-foreground)]">
-                    {w.label}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <TaskBreakdown report={report} />
+
+      <ProductivityChart series={report.series} />
 
       <Card>
         <CardHeader>
@@ -145,36 +101,69 @@ export function MemberReport({ report }: { report: MemberReportData }) {
   );
 }
 
-function GrowthBadge({
-  thisWeek,
-  lastWeek,
-  growthRate,
-}: {
-  thisWeek: number;
-  lastWeek: number;
-  growthRate: number | null;
-}) {
-  const Icon =
-    growthRate === null || growthRate === 0
-      ? Minus
-      : growthRate > 0
-        ? TrendingUp
-        : TrendingDown;
+function TaskBreakdown({ report }: { report: MemberReportData }) {
+  const total = report.totalAssigned;
+  const pct = (n: number) => (total === 0 ? 0 : (n / total) * 100);
 
-  const label =
-    growthRate === null
-      ? lastWeek === 0 && thisWeek > 0
-        ? "New activity"
-        : "No change"
-      : `${growthRate > 0 ? "+" : ""}${growthRate}% vs last week`;
+  const segments = [
+    { label: "Done", value: report.completed, className: "bg-[var(--color-primary)]" },
+    {
+      label: "In progress",
+      value: report.inProgress,
+      className: "bg-[var(--color-primary)]/55",
+    },
+    {
+      label: "To do",
+      value: report.todo,
+      className: "bg-[var(--color-primary)]/20",
+    },
+  ];
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-sm">
-      <Icon className="size-4 text-[var(--color-muted-foreground)]" />
-      <span className="text-[var(--color-muted-foreground)]">{label}</span>
-      <span className="font-medium tabular-nums">
-        {thisWeek} this week
-      </span>
-    </div>
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <CardTitle>Task breakdown</CardTitle>
+            <CardDescription>How the assigned work splits by status.</CardDescription>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-semibold tabular-nums">
+              {report.completionRate}%
+            </div>
+            <div className="text-xs text-[var(--color-muted-foreground)]">
+              completion rate
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex h-3 w-full overflow-hidden rounded-full bg-[var(--color-secondary)]">
+          {total === 0
+            ? null
+            : segments.map((s) =>
+                s.value === 0 ? null : (
+                  <div
+                    key={s.label}
+                    className={s.className}
+                    style={{ width: `${pct(s.value)}%` }}
+                    title={`${s.label}: ${s.value}`}
+                  />
+                ),
+              )}
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+          {segments.map((s) => (
+            <span key={s.label} className="inline-flex items-center gap-1.5">
+              <span className={`size-2.5 rounded-sm ${s.className}`} />
+              <span className="text-[var(--color-muted-foreground)]">
+                {s.label}
+              </span>
+              <span className="font-medium tabular-nums">{s.value}</span>
+            </span>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -18,11 +18,17 @@ export type MemberProfile = {
   lastSignInAt: string | null;
 };
 
-export type WeekBucket = {
-  weekStart: string;
+export type ProductivityBucket = {
+  key: string;
   label: string;
   completed: number;
   created: number;
+};
+
+export type ProductivitySeries = {
+  daily: ProductivityBucket[];
+  weekly: ProductivityBucket[];
+  monthly: ProductivityBucket[];
 };
 
 export type MemberReportTask = {
@@ -43,14 +49,15 @@ export type MemberReport = {
   overdue: number;
   completionRate: number;
   projectCount: number;
-  completedThisWeek: number;
-  completedLastWeek: number;
-  growthRate: number | null;
-  weeks: WeekBucket[];
+  series: ProductivitySeries;
   recentTasks: MemberReportTask[];
 };
 
+const DAYS_TRACKED = 14;
 const WEEKS_TRACKED = 8;
+const MONTHS_TRACKED = 6;
+
+type Period = { key: string; label: string; start: Date; end: Date };
 
 /**
  * The member detail page is visible to app admins (any member) and to the
@@ -148,43 +155,12 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
   const completionRate =
     totalAssigned === 0 ? 0 : Math.round((completed / totalAssigned) * 100);
 
-  // ----- weekly buckets (Monday-aligned, oldest first) -----
-  const thisWeekStart = startOfWeek(new Date());
-  const weeks: WeekBucket[] = [];
-  for (let i = WEEKS_TRACKED - 1; i >= 0; i--) {
-    const start = addDays(thisWeekStart, -7 * i);
-    const end = addDays(start, 7);
-    let weekCompleted = 0;
-    let weekCreated = 0;
-    for (const t of rows) {
-      if (t.completed_at) {
-        const c = new Date(t.completed_at);
-        if (c >= start && c < end) weekCompleted += 1;
-      }
-      if (t.created_at) {
-        const cr = new Date(t.created_at);
-        if (cr >= start && cr < end) weekCreated += 1;
-      }
-    }
-    weeks.push({
-      weekStart: start.toISOString(),
-      label: start.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-      }),
-      completed: weekCompleted,
-      created: weekCreated,
-    });
-  }
-
-  const completedThisWeek = weeks[weeks.length - 1]?.completed ?? 0;
-  const completedLastWeek = weeks[weeks.length - 2]?.completed ?? 0;
-  const growthRate =
-    completedLastWeek === 0
-      ? null
-      : Math.round(
-          ((completedThisWeek - completedLastWeek) / completedLastWeek) * 100,
-        );
+  // ----- productivity buckets at three granularities (oldest first) -----
+  const series: ProductivitySeries = {
+    daily: fillBuckets(rows, dailyPeriods()),
+    weekly: fillBuckets(rows, weeklyPeriods()),
+    monthly: fillBuckets(rows, monthlyPeriods()),
+  };
 
   // ----- recent tasks (most recently touched first) -----
   const recentTasks: MemberReportTask[] = [...rows]
@@ -208,25 +184,121 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
     overdue,
     completionRate,
     projectCount: projectIds.length,
-    completedThisWeek,
-    completedLastWeek,
-    growthRate,
-    weeks,
+    series,
     recentTasks,
   };
 }
 
-function startOfWeek(d: Date): Date {
+/** Count completed/created tasks falling inside each period window. */
+function fillBuckets(
+  rows: { completed_at: string | null; created_at: string }[],
+  periods: Period[],
+): ProductivityBucket[] {
+  return periods.map((p) => {
+    let bucketCompleted = 0;
+    let bucketCreated = 0;
+    for (const t of rows) {
+      if (t.completed_at) {
+        const c = new Date(t.completed_at);
+        if (c >= p.start && c < p.end) bucketCompleted += 1;
+      }
+      if (t.created_at) {
+        const cr = new Date(t.created_at);
+        if (cr >= p.start && cr < p.end) bucketCreated += 1;
+      }
+    }
+    return {
+      key: p.key,
+      label: p.label,
+      completed: bucketCompleted,
+      created: bucketCreated,
+    };
+  });
+}
+
+function dailyPeriods(): Period[] {
+  const today = startOfDay(new Date());
+  const periods: Period[] = [];
+  for (let i = DAYS_TRACKED - 1; i >= 0; i--) {
+    const start = addDays(today, -i);
+    const end = addDays(start, 1);
+    periods.push({
+      key: start.toISOString(),
+      label: start.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+      }),
+      start,
+      end,
+    });
+  }
+  return periods;
+}
+
+function weeklyPeriods(): Period[] {
+  const thisWeek = startOfWeek(new Date());
+  const periods: Period[] = [];
+  for (let i = WEEKS_TRACKED - 1; i >= 0; i--) {
+    const start = addDays(thisWeek, -7 * i);
+    const end = addDays(start, 7);
+    periods.push({
+      key: start.toISOString(),
+      label: start.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+      }),
+      start,
+      end,
+    });
+  }
+  return periods;
+}
+
+function monthlyPeriods(): Period[] {
+  const thisMonth = startOfMonth(new Date());
+  const periods: Period[] = [];
+  for (let i = MONTHS_TRACKED - 1; i >= 0; i--) {
+    const start = addMonths(thisMonth, -i);
+    const end = addMonths(start, 1);
+    periods.push({
+      key: start.toISOString(),
+      label: start.toLocaleDateString("en-GB", { month: "short" }),
+      start,
+      end,
+    });
+  }
+  return periods;
+}
+
+function startOfDay(d: Date): Date {
   const date = new Date(d);
   date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function startOfWeek(d: Date): Date {
+  const date = startOfDay(d);
   const day = date.getDay(); // 0 Sun .. 6 Sat
   const diff = day === 0 ? -6 : 1 - day; // shift back to Monday
   date.setDate(date.getDate() + diff);
   return date;
 }
 
+function startOfMonth(d: Date): Date {
+  const date = new Date(d);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(1);
+  return date;
+}
+
 function addDays(d: Date, days: number): Date {
   const date = new Date(d);
   date.setDate(date.getDate() + days);
+  return date;
+}
+
+function addMonths(d: Date, months: number): Date {
+  const date = new Date(d);
+  date.setMonth(date.getMonth() + months);
   return date;
 }
