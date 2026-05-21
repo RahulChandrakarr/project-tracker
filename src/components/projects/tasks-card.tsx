@@ -57,36 +57,38 @@ export function TasksCard({
         <CardTitle>Tasks</CardTitle>
         <CardDescription>
           {totalTasks} task{totalTasks === 1 ? "" : "s"}
-          {canManage ? " — assign to members, break into subtasks, add notes." : "."}
+          {canManage
+            ? ". Assign to members, break into subtasks, add notes."
+            : ". Add tasks and update their status."}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-5">
-        {canManage ? (
-          <form
-            ref={formRef}
-            action={formAction}
-            className="flex flex-col gap-3 rounded-lg border border-[var(--color-border)] p-4"
-          >
-            <input type="hidden" name="projectId" value={projectId} />
+        <form
+          ref={formRef}
+          action={formAction}
+          className="flex flex-col gap-3 rounded-lg border border-[var(--color-border)] p-4"
+        >
+          <input type="hidden" name="projectId" value={projectId} />
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="title">New task</Label>
-              <Input
-                id="title"
-                name="title"
-                placeholder="What needs doing?"
-                required
-                maxLength={200}
-              />
-              {state.fieldErrors?.title ? (
-                <p className="text-xs text-[var(--color-muted-foreground)]">
-                  {state.fieldErrors.title}
-                </p>
-              ) : null}
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="title">New task</Label>
+            <Input
+              id="title"
+              name="title"
+              placeholder="What needs doing?"
+              required
+              maxLength={200}
+            />
+            {state.fieldErrors?.title ? (
+              <p className="text-xs text-[var(--color-muted-foreground)]">
+                {state.fieldErrors.title}
+              </p>
+            ) : null}
+          </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {canManage ? (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="assigneeId">Assignee</Label>
                 <SelectNative id="assigneeId" name="assigneeId" defaultValue="">
@@ -98,34 +100,34 @@ export function TasksCard({
                   ))}
                 </SelectNative>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="status">Status</Label>
-                <SelectNative id="status" name="status" defaultValue="todo">
-                  <option value="todo">To do</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="done">Done</option>
-                </SelectNative>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="dueDate">Due</Label>
-                <Input id="dueDate" name="dueDate" type="date" />
-              </div>
-            </div>
-
-            {state.message && !state.ok ? (
-              <p className="text-sm text-[var(--color-muted-foreground)]">
-                {state.message}
-              </p>
             ) : null}
-
-            <div className="flex justify-end">
-              <Button type="submit" size="sm" disabled={pending}>
-                <Plus />
-                Add task
-              </Button>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="status">Status</Label>
+              <SelectNative id="status" name="status" defaultValue="todo">
+                <option value="todo">To do</option>
+                <option value="in_progress">In progress</option>
+                <option value="done">Done</option>
+              </SelectNative>
             </div>
-          </form>
-        ) : null}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="dueDate">Due</Label>
+              <Input id="dueDate" name="dueDate" type="date" />
+            </div>
+          </div>
+
+          {state.message && !state.ok ? (
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              {state.message}
+            </p>
+          ) : null}
+
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" disabled={pending}>
+              <Plus />
+              Add task
+            </Button>
+          </div>
+        </form>
 
         {tree.length === 0 ? (
           <p className="rounded-md border border-dashed border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted-foreground)]">
