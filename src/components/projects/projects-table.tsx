@@ -32,8 +32,52 @@ export function ProjectsTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]">
-      <Table>
+    <>
+      {/* Mobile: stacked cards (the table has too many columns for small screens). */}
+      <ul className="flex flex-col gap-3 md:hidden">
+        {projects.map((p) => {
+          const categoryName = p.category_id
+            ? categoryNameById?.get(p.category_id)
+            : null;
+          return (
+            <li key={p.id}>
+              <Link
+                href={`/projects/${p.id}`}
+                className="block rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{p.name}</div>
+                    <div className="truncate text-xs text-[var(--color-muted-foreground)]">
+                      {p.client}
+                    </div>
+                  </div>
+                  <StatusBadge status={p.status} />
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
+                  <ProgressBar value={p.progress} className="flex-1" />
+                  <span className="w-9 text-right text-xs tabular-nums text-[var(--color-muted-foreground)]">
+                    {p.progress}%
+                  </span>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--color-muted-foreground)]">
+                  {categoryName ? (
+                    <Badge variant="outline">{categoryName}</Badge>
+                  ) : null}
+                  <span>{PRIORITY_LABEL[p.priority]} priority</span>
+                  <span>Due {formatDate(p.deadline)}</span>
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* md+ : full table */}
+      <div className="hidden overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] md:block">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Project</TableHead>
@@ -91,6 +135,7 @@ export function ProjectsTable({
           ))}
         </TableBody>
       </Table>
-    </div>
+      </div>
+    </>
   );
 }

@@ -37,8 +37,95 @@ export function UsersTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-card)]">
-      <Table>
+    <>
+      {/* Mobile: stacked cards. */}
+      <ul className="flex flex-col gap-3 md:hidden">
+        {users.map((u) => {
+          const isSelf = u.id === currentUserId;
+          return (
+            <li
+              key={u.id}
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4"
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className="grid size-9 shrink-0 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] text-xs font-medium"
+                  aria-hidden
+                >
+                  {(u.fullName ?? u.email ?? "?").slice(0, 2).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">
+                    <Link
+                      href={`/members/${u.id}`}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {u.fullName ?? "Unnamed"}
+                    </Link>
+                    {isSelf ? (
+                      <span className="ml-2 text-xs text-[var(--color-muted-foreground)]">
+                        (you)
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="truncate text-xs text-[var(--color-muted-foreground)]">
+                    {u.email ?? "—"}
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                    Joined {formatDate(u.createdAt)}
+                    {" · "}
+                    {u.lastSignInAt
+                      ? `Last seen ${formatDate(u.lastSignInAt)}`
+                      : "Never signed in"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                {isSelf ? (
+                  <Badge variant="outline">{APP_ROLE_LABEL[u.role]}</Badge>
+                ) : (
+                  <form action={updateUserRole}>
+                    <input type="hidden" name="userId" value={u.id} />
+                    <SelectNative
+                      name="role"
+                      defaultValue={u.role}
+                      className="h-8 w-32 text-xs"
+                      onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                    >
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </SelectNative>
+                  </form>
+                )}
+                <div className="flex items-center gap-1">
+                  <SetPasswordDialog
+                    userId={u.id}
+                    label={u.fullName ?? u.email ?? "this user"}
+                  />
+                  {isSelf ? null : (
+                    <form action={deleteUser} className="inline">
+                      <input type="hidden" name="userId" value={u.id} />
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete ${u.fullName ?? u.email}`}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* md+ : full table */}
+      <div className="hidden overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] md:block">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
@@ -134,6 +221,7 @@ export function UsersTable({
           })}
         </TableBody>
       </Table>
-    </div>
+      </div>
+    </>
   );
 }

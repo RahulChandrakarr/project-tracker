@@ -86,7 +86,7 @@ export function ProductivityChart({ series }: { series: ProductivitySeries }) {
           <GrowthBadge unit={unit} growthRate={growthRate} thisPeriod={thisPeriod} />
         </div>
 
-        <div className="flex items-end justify-between gap-1.5">
+        <div className="flex items-end justify-between gap-1.5 overflow-x-auto pb-1">
           {buckets.map((b) => {
             const completedH =
               b.completed === 0
