@@ -26,6 +26,7 @@ export async function listProjectTasks(projectId: string): Promise<Task[]> {
     .from("tasks")
     .select("*")
     .eq("project_id", projectId)
+    .order("position", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(`Failed to load tasks: ${error.message}`);
@@ -55,9 +56,22 @@ export async function listProjectTasks(projectId: string): Promise<Task[]> {
 }
 
 /**
+ * Stable sort that floats done tasks to the bottom of a sibling group while
+ * preserving the incoming (position) order within the done and not-done
+ * groups. Array.prototype.sort is stable, so equal keys keep their order.
+ */
+function sinkDone(nodes: TaskNode[]): void {
+  nodes.sort(
+    (a, b) => (a.status === "done" ? 1 : 0) - (b.status === "done" ? 1 : 0),
+  );
+  for (const n of nodes) sinkDone(n.children);
+}
+
+/**
  * Builds a tree from a flat task list. Tasks with no parent_id (or with a
- * parent_id pointing to a task not in the list) become roots. Children are
- * sorted by created_at — matches the query order.
+ * parent_id pointing to a task not in the list) become roots. Siblings keep
+ * the flat list's order (position), then done tasks are sunk to the bottom of
+ * each group so completed work always renders last.
  */
 export function buildTaskTree(tasks: Task[]): TaskNode[] {
   const byId = new Map<string, TaskNode>();
@@ -84,6 +98,8 @@ export function buildTaskTree(tasks: Task[]): TaskNode[] {
     for (const c of node.children) fix(c, depth + 1);
   }
   for (const r of roots) fix(r, 0);
+
+  sinkDone(roots);
 
   return roots;
 }

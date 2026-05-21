@@ -163,6 +163,7 @@ export type Database = {
           status: TaskStatus;
           due_date: string | null;
           completed_at: string | null;
+          position: number;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -177,6 +178,7 @@ export type Database = {
           status?: TaskStatus;
           due_date?: string | null;
           completed_at?: string | null;
+          position?: number;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -189,6 +191,7 @@ export type Database = {
           status?: TaskStatus;
           due_date?: string | null;
           completed_at?: string | null;
+          position?: number;
           updated_at?: string;
         };
         Relationships: [];
@@ -261,6 +264,7 @@ export type Database = {
         Args: { pid: string; uid: string };
         Returns: boolean;
       };
+      reorder_tasks: { Args: { p_ids: string[] }; Returns: undefined };
     };
     Enums: {
       app_role: AppRole;

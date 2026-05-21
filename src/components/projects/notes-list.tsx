@@ -17,14 +17,32 @@ export function NotesList({
   notes,
   currentUserId,
   canManage,
+  showForm: showFormProp,
+  onShowFormChange,
 }: {
   projectId: string;
   taskId?: string;
   notes: Note[];
   currentUserId: string;
   canManage: boolean;
+  /**
+   * When provided, the form's open state is controlled by the parent and the
+   * built-in "Add note" trigger is hidden (the parent owns the trigger). The
+   * task tree uses this so the add-note action can live in the row toolbar.
+   */
+  showForm?: boolean;
+  onShowFormChange?: (open: boolean) => void;
 }) {
-  const [showForm, setShowForm] = React.useState(false);
+  const controlled = onShowFormChange !== undefined;
+  const [showFormState, setShowFormState] = React.useState(false);
+  const showForm = controlled ? Boolean(showFormProp) : showFormState;
+  const setShowForm = React.useCallback(
+    (open: boolean) => {
+      if (controlled) onShowFormChange?.(open);
+      else setShowFormState(open);
+    },
+    [controlled, onShowFormChange],
+  );
   const [state, formAction, pending] = useActionState(addNote, INITIAL);
   const formRef = React.useRef<HTMLFormElement>(null);
 
@@ -34,7 +52,7 @@ export function NotesList({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowForm(false);
     }
-  }, [state.ok]);
+  }, [state.ok, setShowForm]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -125,7 +143,7 @@ export function NotesList({
             </Button>
           </div>
         </form>
-      ) : (
+      ) : !controlled ? (
         <Button
           type="button"
           variant="outline"
@@ -136,7 +154,7 @@ export function NotesList({
           <Plus />
           Add note
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }

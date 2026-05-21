@@ -55,6 +55,11 @@ const DeleteTaskInput = z.object({
   projectId: z.string().uuid(),
 });
 
+const ReorderTasksInput = z.object({
+  projectId: z.string().uuid(),
+  orderedIds: z.array(z.string().uuid()).min(1),
+});
+
 export type TaskFormState = {
   ok: boolean;
   message?: string;
@@ -83,6 +88,19 @@ export async function createTask(
 
   if (!user) return { ok: false, message: "You must be signed in." };
 
+  // Append to the end of the sibling group so new tasks land at the bottom of
+  // their level (the done-at-bottom view rule still applies on top of this).
+  const lastQuery = supabase
+    .from("tasks")
+    .select("position")
+    .eq("project_id", parsed.data.projectId)
+    .order("position", { ascending: false })
+    .limit(1);
+  const { data: last } = await (parsed.data.parentId
+    ? lastQuery.eq("parent_id", parsed.data.parentId)
+    : lastQuery.is("parent_id", null));
+  const nextPosition = (last?.[0]?.position ?? -1) + 1;
+
   const { error } = await supabase.from("tasks").insert({
     project_id: parsed.data.projectId,
     parent_id: parsed.data.parentId ?? null,
@@ -92,6 +110,7 @@ export async function createTask(
     status: parsed.data.status,
     due_date: parsed.data.dueDate ?? null,
     completed_at: parsed.data.status === "done" ? new Date().toISOString() : null,
+    position: nextPosition,
     created_by: user.id,
   });
 
@@ -143,6 +162,24 @@ export async function deleteTask(formData: FormData): Promise<void> {
   const parsed = DeleteTaskInput.parse(Object.fromEntries(formData));
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("tasks").delete().eq("id", parsed.taskId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/projects/${parsed.projectId}`);
+}
+
+/**
+ * Persists a new order for a group of sibling tasks. `orderedIds` is the full
+ * sibling group in its new order; `reorder_tasks` writes position = index.
+ * Called directly (not via a form) from the drag-and-drop client component.
+ */
+export async function reorderTasks(input: {
+  projectId: string;
+  orderedIds: string[];
+}): Promise<void> {
+  const parsed = ReorderTasksInput.parse(input);
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("reorder_tasks", {
+    p_ids: parsed.orderedIds,
+  });
   if (error) throw new Error(error.message);
   revalidatePath(`/projects/${parsed.projectId}`);
 }

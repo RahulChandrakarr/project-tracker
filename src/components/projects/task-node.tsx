@@ -2,11 +2,31 @@
 
 import * as React from "react";
 import { useActionState } from "react";
-import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  CircleCheck,
+  CircleDot,
+  GripVertical,
+  ListPlus,
+  MessageSquarePlus,
+  Trash2,
+  UserRoundPlus,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover } from "@/components/ui/popover";
 import { SelectNative } from "@/components/ui/select-native";
 import {
   createTask,
@@ -18,10 +38,27 @@ import {
 import type { TaskNode as TaskNodeData } from "@/lib/tasks/queries";
 import type { ProjectMember } from "@/lib/members/queries";
 import type { Note } from "@/lib/notes/queries";
-import type { TaskStatus } from "@/types/project";
+import { TASK_STATUS_LABEL, type TaskStatus } from "@/types/project";
 import { formatDate } from "@/lib/format";
 
 import { NotesList } from "./notes-list";
+
+const MENU_ITEM =
+  "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-[var(--color-accent)] hover:text-[var(--color-accent-foreground)] focus-visible:bg-[var(--color-accent)] focus-visible:text-[var(--color-accent-foreground)] focus-visible:outline-none";
+
+const STATUS_META = {
+  todo: { Icon: Circle, className: "text-[var(--color-muted-foreground)]" },
+  in_progress: { Icon: CircleDot, className: "text-amber-500" },
+  done: { Icon: CircleCheck, className: "text-emerald-500" },
+} satisfies Record<TaskStatus, { Icon: LucideIcon; className: string }>;
+
+function initials(name: string | null): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 const INITIAL: TaskFormState = { ok: false };
 
@@ -42,13 +79,42 @@ export function TaskNode({
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const [showSubtaskForm, setShowSubtaskForm] = React.useState(false);
+  const [showNoteForm, setShowNoteForm] = React.useState(false);
 
   const indentLevel = Math.min(node.depth, MAX_DEPTH_INDENT);
   const ownNotes = notesByTaskId.get(node.id) ?? [];
   const isTopLevel = indentLevel === 0;
 
+  // The note/subtask add actions live in the row toolbar, so triggering one
+  // also expands the node to reveal the form it opens.
+  const openNoteForm = () => {
+    setExpanded(true);
+    setShowNoteForm(true);
+  };
+  const openSubtaskForm = () => {
+    setExpanded(true);
+    setShowSubtaskForm(true);
+  };
+
+  // Sortable row. Disabled for non-managers (no reorder permission). The
+  // transform/transition animate the row during a sibling drag.
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: node.id, disabled: !canManage });
+
   return (
-    <li className="border-b border-[var(--color-border)] last:border-b-0">
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`border-b border-[var(--color-border)] last:border-b-0 ${
+        isDragging ? "relative z-10 opacity-60" : ""
+      }`}
+    >
       <div
         className={`relative flex flex-col gap-2 py-3 pr-2 md:flex-row md:items-center md:gap-3 ${
           isTopLevel ? "bg-[var(--color-muted)]" : ""
@@ -66,19 +132,33 @@ export function TaskNode({
           />
         ))}
 
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? "Collapse" : "Expand"}
-          aria-expanded={expanded}
-          className="grid size-6 shrink-0 place-items-center rounded text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]"
-        >
-          {expanded ? (
-            <ChevronDown className="size-4" />
-          ) : (
-            <ChevronRight className="size-4" />
-          )}
-        </button>
+        <div className="flex shrink-0 items-center">
+          {canManage ? (
+            <button
+              type="button"
+              aria-label={`Drag to reorder ${node.title}`}
+              className="grid size-6 cursor-grab touch-none place-items-center rounded text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)] active:cursor-grabbing"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="size-4" />
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? "Collapse" : "Expand"}
+            aria-expanded={expanded}
+            className="grid size-6 place-items-center rounded text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]"
+          >
+            {expanded ? (
+              <ChevronDown className="size-4" />
+            ) : (
+              <ChevronRight className="size-4" />
+            )}
+          </button>
+        </div>
 
         <div className="min-w-0 flex-1">
           <div
@@ -104,38 +184,65 @@ export function TaskNode({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {canManage ? (
-            <AssigneeSelect
+            <AssigneeControl
               key={node.assignee_id ?? "none"}
               taskId={node.id}
               projectId={node.project_id}
-              initial={node.assignee_id ?? ""}
+              assigneeId={node.assignee_id ?? ""}
+              assigneeName={node.assignee?.fullName ?? null}
               members={members}
             />
           ) : null}
 
-          <StatusSelect
+          <StatusControl
             key={node.status}
             taskId={node.id}
             projectId={node.project_id}
-            initial={node.status}
+            status={node.status}
           />
 
-          {canManage ? (
-            <form action={deleteTask}>
-              <input type="hidden" name="taskId" value={node.id} />
-              <input type="hidden" name="projectId" value={node.project_id} />
-              <Button
-                type="submit"
-                variant="ghost"
-                size="icon"
-                aria-label={`Delete ${node.title}`}
-              >
-                <Trash2 />
-              </Button>
-            </form>
-          ) : null}
+          <div className="flex items-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={openNoteForm}
+              aria-label={`Add note to ${node.title}`}
+              title="Add note"
+            >
+              <MessageSquarePlus />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={openSubtaskForm}
+              aria-label={`Add subtask to ${node.title}`}
+              title="Add subtask"
+            >
+              <ListPlus />
+            </Button>
+            {canManage ? (
+              <form action={deleteTask}>
+                <input type="hidden" name="taskId" value={node.id} />
+                <input type="hidden" name="projectId" value={node.project_id} />
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label={`Delete ${node.title}`}
+                  title="Delete task"
+                >
+                  <Trash2 />
+                </Button>
+              </form>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -145,16 +252,25 @@ export function TaskNode({
           style={{ paddingLeft: `${12 + indentLevel * 24 + 36}px` }}
         >
           <div className="flex flex-col gap-2">
-            <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-              Notes
-            </div>
+            {ownNotes.length > 0 ? (
+              <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+                Notes
+              </div>
+            ) : null}
             <NotesList
               projectId={node.project_id}
               taskId={node.id}
               notes={ownNotes}
               currentUserId={currentUserId}
               canManage={canManage}
+              showForm={showNoteForm}
+              onShowFormChange={setShowNoteForm}
             />
+            {ownNotes.length === 0 && !showNoteForm ? (
+              <p className="text-xs text-[var(--color-muted-foreground)]">
+                No notes yet. Use the note icon above to add one.
+              </p>
+            ) : null}
           </div>
 
           {showSubtaskForm ? (
@@ -165,112 +281,160 @@ export function TaskNode({
               canManage={canManage}
               onClose={() => setShowSubtaskForm(false)}
             />
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowSubtaskForm(true)}
-              className="self-start"
-            >
-              <Plus />
-              Add subtask
-            </Button>
-          )}
+          ) : null}
         </div>
       ) : null}
 
       {node.children.length > 0 ? (
-        <ul>
-          {node.children.map((c) => (
-            <TaskNode
-              key={c.id}
-              node={c}
-              members={members}
-              notesByTaskId={notesByTaskId}
-              canManage={canManage}
-              currentUserId={currentUserId}
-            />
-          ))}
-        </ul>
+        <SortableContext
+          items={node.children.map((c) => c.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul>
+            {node.children.map((c) => (
+              <TaskNode
+                key={c.id}
+                node={c}
+                members={members}
+                notesByTaskId={notesByTaskId}
+                canManage={canManage}
+                currentUserId={currentUserId}
+              />
+            ))}
+          </ul>
+        </SortableContext>
       ) : null}
     </li>
   );
 }
 
 /**
- * Controlled status dropdown. Controlled (not defaultValue) because React 19
- * resets a <form action> after it runs, which would otherwise snap an
- * uncontrolled select back to its old value. The `key={status}` on the call
- * site re-seeds this when the server value changes (e.g. another user edits).
+ * Status as a colored icon that opens a popover menu. Each option is a submit
+ * button carrying its own `name="status"` value, so picking one posts directly
+ * to `updateTaskStatus` with no client value state to keep in sync. The
+ * `key={status}` on the call site remounts this when the server value changes
+ * (e.g. another user edits), which also closes the menu after a pick.
  */
-function StatusSelect({
+function StatusControl({
   taskId,
   projectId,
-  initial,
+  status,
 }: {
   taskId: string;
   projectId: string;
-  initial: TaskStatus;
+  status: TaskStatus;
 }) {
-  const [value, setValue] = React.useState<TaskStatus>(initial);
+  const Current = STATUS_META[status].Icon;
 
   return (
-    <form action={updateTaskStatus}>
-      <input type="hidden" name="taskId" value={taskId} />
-      <input type="hidden" name="projectId" value={projectId} />
-      <SelectNative
-        name="status"
-        value={value}
-        className="h-8 w-32 text-xs"
-        onChange={(e) => {
-          setValue(e.currentTarget.value as TaskStatus);
-          e.currentTarget.form?.requestSubmit();
-        }}
-      >
-        <option value="todo">To do</option>
-        <option value="in_progress">In progress</option>
-        <option value="done">Done</option>
-      </SelectNative>
-    </form>
+    <Popover
+      align="end"
+      triggerLabel={`Status: ${TASK_STATUS_LABEL[status]}`}
+      triggerClassName="grid size-8 shrink-0 place-items-center rounded-md hover:bg-[var(--color-accent)]"
+      trigger={<Current className={`size-4 ${STATUS_META[status].className}`} />}
+    >
+      <form action={updateTaskStatus} className="contents">
+        <input type="hidden" name="taskId" value={taskId} />
+        <input type="hidden" name="projectId" value={projectId} />
+        {(Object.keys(STATUS_META) as TaskStatus[]).map((value) => {
+          const { Icon, className } = STATUS_META[value];
+          const selected = value === status;
+          return (
+            <button
+              key={value}
+              type="submit"
+              name="status"
+              value={value}
+              role="menuitemradio"
+              aria-checked={selected}
+              className={MENU_ITEM}
+            >
+              <Icon className={`size-4 shrink-0 ${className}`} />
+              <span className="flex-1">{TASK_STATUS_LABEL[value]}</span>
+              {selected ? <Check className="size-4 shrink-0" /> : null}
+            </button>
+          );
+        })}
+      </form>
+    </Popover>
   );
 }
 
-/** Controlled assignee dropdown. Same reasoning as StatusSelect. */
-function AssigneeSelect({
+/**
+ * Assignee as an avatar (initials) or an add-person icon when unassigned,
+ * opening a popover of members. Same submit-button-per-option approach as
+ * StatusControl; "" posts as Unassigned.
+ */
+function AssigneeControl({
   taskId,
   projectId,
-  initial,
+  assigneeId,
+  assigneeName,
   members,
 }: {
   taskId: string;
   projectId: string;
-  initial: string;
+  assigneeId: string;
+  assigneeName: string | null;
   members: ProjectMember[];
 }) {
-  const [value, setValue] = React.useState(initial);
+  const assigned = assigneeId !== "";
 
   return (
-    <form action={updateTaskAssignee}>
-      <input type="hidden" name="taskId" value={taskId} />
-      <input type="hidden" name="projectId" value={projectId} />
-      <SelectNative
-        name="assigneeId"
-        value={value}
-        className="h-8 w-40 text-xs"
-        onChange={(e) => {
-          setValue(e.currentTarget.value);
-          e.currentTarget.form?.requestSubmit();
-        }}
-      >
-        <option value="">Unassigned</option>
-        {members.map((m) => (
-          <option key={m.userId} value={m.userId}>
-            {m.fullName ?? m.userId.slice(0, 8)}
-          </option>
-        ))}
-      </SelectNative>
-    </form>
+    <Popover
+      align="end"
+      triggerLabel={assigned ? `Assigned to ${assigneeName ?? "member"}` : "Unassigned"}
+      triggerClassName="grid size-8 shrink-0 place-items-center rounded-md hover:bg-[var(--color-accent)]"
+      trigger={
+        assigned ? (
+          <span className="grid size-6 place-items-center rounded-full bg-[var(--color-primary)] text-[10px] font-semibold text-[var(--color-primary-foreground)]">
+            {initials(assigneeName)}
+          </span>
+        ) : (
+          <UserRoundPlus className="size-4 text-[var(--color-muted-foreground)]" />
+        )
+      }
+    >
+      <form action={updateTaskAssignee} className="contents">
+        <input type="hidden" name="taskId" value={taskId} />
+        <input type="hidden" name="projectId" value={projectId} />
+        <button
+          type="submit"
+          name="assigneeId"
+          value=""
+          role="menuitemradio"
+          aria-checked={!assigned}
+          className={MENU_ITEM}
+        >
+          <span className="grid size-5 shrink-0 place-items-center rounded-full border border-dashed border-[var(--color-border)]" />
+          <span className="flex-1 text-[var(--color-muted-foreground)]">
+            Unassigned
+          </span>
+          {!assigned ? <Check className="size-4 shrink-0" /> : null}
+        </button>
+        {members.map((m) => {
+          const name = m.fullName ?? m.userId.slice(0, 8);
+          const selected = m.userId === assigneeId;
+          return (
+            <button
+              key={m.userId}
+              type="submit"
+              name="assigneeId"
+              value={m.userId}
+              role="menuitemradio"
+              aria-checked={selected}
+              className={MENU_ITEM}
+            >
+              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[var(--color-muted)] text-[10px] font-semibold">
+                {initials(name)}
+              </span>
+              <span className="flex-1 truncate">{name}</span>
+              {selected ? <Check className="size-4 shrink-0" /> : null}
+            </button>
+          );
+        })}
+      </form>
+    </Popover>
   );
 }
 
