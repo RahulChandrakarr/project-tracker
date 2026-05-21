@@ -24,6 +24,11 @@ const UpdateRoleInput = z.object({
   role: z.enum(["admin", "member"]),
 });
 
+const SetUserPasswordInput = z.object({
+  userId: z.string().uuid(),
+  password: z.string().min(8, "Password must be at least 8 characters").max(72),
+});
+
 const DeleteUserInput = z.object({
   userId: z.string().uuid(),
 });
@@ -139,6 +144,35 @@ export async function inviteUser(
     ok: true,
     message: `Invite sent to ${parsed.data.email}. They'll get an email with a link to set their password.`,
   };
+}
+
+export async function setUserPassword(
+  _prev: UserFormState,
+  formData: FormData,
+): Promise<UserFormState> {
+  await assertAppAdmin();
+
+  const parsed = SetUserPasswordInput.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0]?.toString() ?? "_";
+      fieldErrors[key] = issue.message;
+    }
+    return { ok: false, message: "Check the fields below.", fieldErrors };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(parsed.data.userId, {
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/members");
+  return { ok: true, message: "Password updated." };
 }
 
 export async function updateUserRole(formData: FormData): Promise<void> {

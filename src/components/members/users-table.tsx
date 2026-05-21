@@ -18,6 +18,8 @@ import type { AppUser } from "@/lib/users/queries";
 import { formatDate } from "@/lib/format";
 import { APP_ROLE_LABEL } from "@/types/project";
 
+import { SetPasswordDialog } from "./set-password-dialog";
+
 export function UsersTable({
   users,
   currentUserId,
@@ -43,7 +45,7 @@ export function UsersTable({
             <TableHead>Role</TableHead>
             <TableHead>Joined</TableHead>
             <TableHead>Last sign-in</TableHead>
-            <TableHead className="w-[80px] text-right">Actions</TableHead>
+            <TableHead className="w-[120px] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -101,19 +103,25 @@ export function UsersTable({
                   {u.lastSignInAt ? formatDate(u.lastSignInAt) : "Never"}
                 </TableCell>
                 <TableCell className="text-right">
-                  {isSelf ? null : (
-                    <form action={deleteUser} className="inline">
-                      <input type="hidden" name="userId" value={u.id} />
-                      <Button
-                        type="submit"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Delete ${u.fullName ?? u.email}`}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </form>
-                  )}
+                  <div className="flex items-center justify-end gap-1">
+                    <SetPasswordDialog
+                      userId={u.id}
+                      label={u.fullName ?? u.email ?? "this user"}
+                    />
+                    {isSelf ? null : (
+                      <form action={deleteUser} className="inline">
+                        <input type="hidden" name="userId" value={u.id} />
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Delete ${u.fullName ?? u.email}`}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </form>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );
