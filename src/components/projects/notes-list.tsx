@@ -17,14 +17,12 @@ export function NotesList({
   notes,
   currentUserId,
   canManage,
-  emptyLabel = "No notes yet.",
 }: {
   projectId: string;
   taskId?: string;
   notes: Note[];
   currentUserId: string;
   canManage: boolean;
-  emptyLabel?: string;
 }) {
   const [showForm, setShowForm] = React.useState(false);
   const [state, formAction, pending] = useActionState(addNote, INITIAL);
@@ -40,11 +38,7 @@ export function NotesList({
 
   return (
     <div className="flex flex-col gap-3">
-      {notes.length === 0 ? (
-        <p className="rounded-md border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-xs text-[var(--color-muted-foreground)]">
-          {emptyLabel}
-        </p>
-      ) : (
+      {notes.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {notes.map((n) => {
             const canDelete = canManage || n.created_by === currentUserId;
@@ -91,7 +85,7 @@ export function NotesList({
             );
           })}
         </ul>
-      )}
+      ) : null}
 
       {showForm ? (
         <form

@@ -45,13 +45,27 @@ export function TaskNode({
 
   const indentLevel = Math.min(node.depth, MAX_DEPTH_INDENT);
   const ownNotes = notesByTaskId.get(node.id) ?? [];
+  const isTopLevel = indentLevel === 0;
 
   return (
-    <li
-      className="border-b border-[var(--color-border)] last:border-b-0"
-      style={{ paddingLeft: `${indentLevel * 16}px` }}
-    >
-      <div className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:gap-3">
+    <li className="border-b border-[var(--color-border)] last:border-b-0">
+      <div
+        className={`relative flex flex-col gap-2 py-3 pr-2 md:flex-row md:items-center md:gap-3 ${
+          isTopLevel ? "bg-[var(--color-muted)]" : ""
+        }`}
+        style={{ paddingLeft: `${12 + indentLevel * 24}px` }}
+      >
+        {/* Hierarchy guide rails: one vertical line per ancestor level,
+            aligned under that ancestor's chevron so subtasks read as a tree. */}
+        {Array.from({ length: indentLevel }).map((_, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className="pointer-events-none absolute top-0 bottom-0 w-px bg-[var(--color-border)]"
+            style={{ left: `${(i + 1) * 24}px` }}
+          />
+        ))}
+
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -67,7 +81,13 @@ export function TaskNode({
         </button>
 
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{node.title}</div>
+          <div
+            className={`truncate text-sm ${
+              isTopLevel ? "font-semibold" : "font-medium"
+            }`}
+          >
+            {node.title}
+          </div>
           <div className="text-xs text-[var(--color-muted-foreground)]">
             Due {formatDate(node.due_date)}
             {node.assignee?.fullName
@@ -120,7 +140,10 @@ export function TaskNode({
       </div>
 
       {expanded ? (
-        <div className="flex flex-col gap-4 pb-4 pl-9 pr-2">
+        <div
+          className="flex flex-col gap-4 pb-4 pr-2"
+          style={{ paddingLeft: `${12 + indentLevel * 24 + 36}px` }}
+        >
           <div className="flex flex-col gap-2">
             <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
               Notes
@@ -131,7 +154,6 @@ export function TaskNode({
               notes={ownNotes}
               currentUserId={currentUserId}
               canManage={canManage}
-              emptyLabel="No notes on this task yet."
             />
           </div>
 

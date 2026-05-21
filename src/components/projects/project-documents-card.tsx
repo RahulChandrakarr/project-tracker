@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import { useActionState } from "react";
-import { ExternalLink, FileText, LinkIcon, Trash2, Upload } from "lucide-react";
+import {
+  ExternalLink,
+  FileText,
+  LinkIcon,
+  Plus,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +41,8 @@ export function ProjectDocumentsCard({
   documents: ProjectDocument[];
   canManage: boolean;
 }) {
+  const [showForms, setShowForms] = React.useState(false);
+
   return (
     <Card>
       <CardHeader>
@@ -44,18 +53,7 @@ export function ProjectDocumentsCard({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-5">
-        {canManage ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <AddLinkForm projectId={projectId} />
-            <UploadFileForm projectId={projectId} />
-          </div>
-        ) : null}
-
-        {documents.length === 0 ? (
-          <p className="rounded-md border border-dashed border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted-foreground)]">
-            No documents yet.
-          </p>
-        ) : (
+        {documents.length > 0 ? (
           <ul className="flex flex-col divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)]">
             {documents.map((d) => (
               <DocumentRow
@@ -66,7 +64,38 @@ export function ProjectDocumentsCard({
               />
             ))}
           </ul>
-        )}
+        ) : null}
+
+        {canManage ? (
+          showForms ? (
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 gap-4">
+                <AddLinkForm projectId={projectId} />
+                <UploadFileForm projectId={projectId} />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowForms(false)}
+                className="self-start"
+              >
+                Done
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowForms(true)}
+              className="self-start"
+            >
+              <Plus />
+              Add document
+            </Button>
+          )
+        ) : null}
       </CardContent>
     </Card>
   );

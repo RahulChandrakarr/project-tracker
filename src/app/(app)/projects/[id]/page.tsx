@@ -117,12 +117,6 @@ export default async function ProjectDetailPage({
             canManage={canManage}
             currentUserId={me.id}
           />
-
-          <ProjectDocumentsCard
-            projectId={project.id}
-            documents={documents}
-            canManage={canManage}
-          />
         </div>
 
         <div className="flex flex-col gap-6">
@@ -138,6 +132,12 @@ export default async function ProjectDetailPage({
             projectId={project.id}
             notes={projectNotes}
             currentUserId={me.id}
+            canManage={canManage}
+          />
+
+          <ProjectDocumentsCard
+            projectId={project.id}
+            documents={documents}
             canManage={canManage}
           />
         </div>

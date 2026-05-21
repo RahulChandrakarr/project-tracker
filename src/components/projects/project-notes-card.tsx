@@ -34,7 +34,6 @@ export function ProjectNotesCard({
           notes={notes}
           currentUserId={currentUserId}
           canManage={canManage}
-          emptyLabel="No project notes yet. Click below to add the first."
         />
       </CardContent>
     </Card>
