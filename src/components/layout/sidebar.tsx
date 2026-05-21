@@ -6,7 +6,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Users,
-  Settings,
+  Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -24,7 +24,7 @@ const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/members", label: "Members", icon: Users, adminOnly: true },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/invite", label: "Invite", icon: Mail, adminOnly: true },
 ];
 
 export function Sidebar({ role }: { role: AppRole }) {
