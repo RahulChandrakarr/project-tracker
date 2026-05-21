@@ -86,7 +86,7 @@ export function TaskNode({
   const isTopLevel = indentLevel === 0;
 
   // The note/subtask add actions live in the row toolbar, so triggering one
-  // also expands the node to reveal the form it opens.
+  // also expands the node to reveal the form it opens. yarr
   const openNoteForm = () => {
     setExpanded(true);
     setShowNoteForm(true);
