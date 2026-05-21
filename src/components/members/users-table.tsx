@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +65,12 @@ export function UsersTable({
                         .toUpperCase()}
                     </div>
                     <span>
-                      {u.fullName ?? "Unnamed"}
+                      <Link
+                        href={`/members/${u.id}`}
+                        className="underline-offset-4 hover:underline"
+                      >
+                        {u.fullName ?? "Unnamed"}
+                      </Link>
                       {isSelf ? (
                         <span className="ml-2 text-xs text-[var(--color-muted-foreground)]">
                           (you)

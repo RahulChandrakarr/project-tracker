@@ -91,6 +91,7 @@ export async function createTask(
     assignee_id: parsed.data.assigneeId ?? null,
     status: parsed.data.status,
     due_date: parsed.data.dueDate ?? null,
+    completed_at: parsed.data.status === "done" ? new Date().toISOString() : null,
     created_by: user.id,
   });
 
@@ -105,7 +106,12 @@ export async function updateTaskStatus(formData: FormData): Promise<void> {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("tasks")
-    .update({ status: parsed.status })
+    .update({
+      status: parsed.status,
+      // Stamp completion time when a task is marked done; clear it if it
+      // moves back out of done. Drives the per-member weekly report.
+      completed_at: parsed.status === "done" ? new Date().toISOString() : null,
+    })
     .eq("id", parsed.taskId);
   if (error) throw new Error(error.message);
   revalidatePath(`/projects/${parsed.projectId}`);

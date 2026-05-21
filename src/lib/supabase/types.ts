@@ -41,6 +41,10 @@ export type Database = {
           id: string;
           full_name: string | null;
           avatar_url: string | null;
+          title: string | null;
+          phone: string | null;
+          location: string | null;
+          bio: string | null;
           role: AppRole;
           created_at: string;
           updated_at: string;
@@ -49,6 +53,10 @@ export type Database = {
           id: string;
           full_name?: string | null;
           avatar_url?: string | null;
+          title?: string | null;
+          phone?: string | null;
+          location?: string | null;
+          bio?: string | null;
           role?: AppRole;
           created_at?: string;
           updated_at?: string;
@@ -57,6 +65,10 @@ export type Database = {
           id?: string;
           full_name?: string | null;
           avatar_url?: string | null;
+          title?: string | null;
+          phone?: string | null;
+          location?: string | null;
+          bio?: string | null;
           role?: AppRole;
           updated_at?: string;
         };
@@ -150,6 +162,7 @@ export type Database = {
           assignee_id: string | null;
           status: TaskStatus;
           due_date: string | null;
+          completed_at: string | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -163,6 +176,7 @@ export type Database = {
           assignee_id?: string | null;
           status?: TaskStatus;
           due_date?: string | null;
+          completed_at?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -174,6 +188,7 @@ export type Database = {
           assignee_id?: string | null;
           status?: TaskStatus;
           due_date?: string | null;
+          completed_at?: string | null;
           updated_at?: string;
         };
         Relationships: [];

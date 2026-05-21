@@ -17,7 +17,7 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-screen w-full">
-      <Sidebar role={role} />
+      <Sidebar role={role} userId={user.id} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header user={user} />
         <main className="flex-1 px-4 py-6 md:px-8">{children}</main>

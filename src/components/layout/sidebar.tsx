@@ -7,6 +7,7 @@ import {
   FolderKanban,
   Users,
   Mail,
+  UserCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -27,9 +28,10 @@ const NAV: NavItem[] = [
   { href: "/invite", label: "Invite", icon: Mail, adminOnly: true },
 ];
 
-export function Sidebar({ role }: { role: AppRole }) {
+export function Sidebar({ role, userId }: { role: AppRole; userId: string }) {
   const pathname = usePathname();
   const visible = NAV.filter((item) => !item.adminOnly || role === "admin");
+  const profileHref = `/members/${userId}`;
 
   return (
     <aside className="hidden w-60 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-background)] md:flex md:flex-col">
@@ -42,7 +44,11 @@ export function Sidebar({ role }: { role: AppRole }) {
       <nav className="flex-1 space-y-1 px-3 py-4">
         {visible.map(({ href, label, icon: Icon }) => {
           const active =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
+            href === "/"
+              ? pathname === "/"
+              : href === "/members"
+                ? pathname === "/members"
+                : pathname.startsWith(href);
           return (
             <Link
               key={href}
@@ -59,6 +65,19 @@ export function Sidebar({ role }: { role: AppRole }) {
             </Link>
           );
         })}
+
+        <Link
+          href={profileHref}
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+            pathname === profileHref
+              ? "bg-[var(--color-secondary)] text-[var(--color-foreground)]"
+              : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]",
+          )}
+        >
+          <UserCircle className="size-4" />
+          My profile
+        </Link>
       </nav>
 
       <div className="border-t border-[var(--color-border)] p-4 text-xs text-[var(--color-muted-foreground)]">
