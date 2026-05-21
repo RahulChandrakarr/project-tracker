@@ -48,7 +48,16 @@ export type MemberReport = {
   todo: number;
   overdue: number;
   completionRate: number;
+  /** Distinct projects the member has assigned tasks in. */
   projectCount: number;
+  /** Projects the member belongs to (project_members rows). */
+  projectsInvolved: number;
+  completedThisWeek: number;
+  completedThisMonth: number;
+  /** Mean days from task creation to completion; null if nothing done yet. */
+  avgCompletionDays: number | null;
+  /** % of completed tasks finished on/before their due date; null if none had a due date. */
+  onTimeRate: number | null;
   series: ProductivitySeries;
   recentTasks: MemberReportTask[];
 };
@@ -111,13 +120,19 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
 
   const admin = createSupabaseAdminClient();
 
-  const { data: tasks, error } = await admin
-    .from("tasks")
-    .select("id, title, status, due_date, completed_at, created_at, project_id")
-    .eq("assignee_id", userId);
-  if (error) throw new Error(error.message);
+  const [tasksResult, membershipResult] = await Promise.all([
+    admin
+      .from("tasks")
+      .select("id, title, status, due_date, completed_at, created_at, project_id")
+      .eq("assignee_id", userId),
+    admin.from("project_members").select("project_id").eq("user_id", userId),
+  ]);
+  if (tasksResult.error) throw new Error(tasksResult.error.message);
 
-  const rows = tasks ?? [];
+  const rows = tasksResult.data ?? [];
+  const projectsInvolved = new Set(
+    (membershipResult.data ?? []).map((m) => m.project_id),
+  ).size;
 
   // Resolve project names in one round trip.
   const projectIds = Array.from(new Set(rows.map((t) => t.project_id)));
@@ -132,11 +147,19 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
 
   const todayMidnight = new Date();
   todayMidnight.setHours(0, 0, 0, 0);
+  const weekStart = startOfWeek(new Date());
+  const monthStart = startOfMonth(new Date());
 
   let completed = 0;
   let inProgress = 0;
   let todo = 0;
   let overdue = 0;
+  let completedThisWeek = 0;
+  let completedThisMonth = 0;
+  let completionDaysSum = 0;
+  let completionDaysCount = 0;
+  let onTimeCount = 0;
+  let dueDatedCompleted = 0;
   for (const t of rows) {
     if (t.status === "done") completed += 1;
     else if (t.status === "in_progress") inProgress += 1;
@@ -149,11 +172,42 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
     ) {
       overdue += 1;
     }
+
+    if (t.completed_at) {
+      const done = new Date(t.completed_at);
+      if (done >= weekStart) completedThisWeek += 1;
+      if (done >= monthStart) completedThisMonth += 1;
+
+      if (t.created_at) {
+        const days =
+          (done.getTime() - new Date(t.created_at).getTime()) / 86_400_000;
+        if (days >= 0) {
+          completionDaysSum += days;
+          completionDaysCount += 1;
+        }
+      }
+
+      if (t.due_date) {
+        dueDatedCompleted += 1;
+        // On time if completed any time on or before the end of the due day.
+        const dueEnd = new Date(t.due_date);
+        dueEnd.setHours(23, 59, 59, 999);
+        if (done <= dueEnd) onTimeCount += 1;
+      }
+    }
   }
 
   const totalAssigned = rows.length;
   const completionRate =
     totalAssigned === 0 ? 0 : Math.round((completed / totalAssigned) * 100);
+  const avgCompletionDays =
+    completionDaysCount === 0
+      ? null
+      : Math.round((completionDaysSum / completionDaysCount) * 10) / 10;
+  const onTimeRate =
+    dueDatedCompleted === 0
+      ? null
+      : Math.round((onTimeCount / dueDatedCompleted) * 100);
 
   // ----- productivity buckets at three granularities (oldest first) -----
   const series: ProductivitySeries = {
@@ -184,6 +238,11 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
     overdue,
     completionRate,
     projectCount: projectIds.length,
+    projectsInvolved,
+    completedThisWeek,
+    completedThisMonth,
+    avgCompletionDays,
+    onTimeRate,
     series,
     recentTasks,
   };

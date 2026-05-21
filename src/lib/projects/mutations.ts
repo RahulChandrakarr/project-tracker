@@ -13,7 +13,6 @@ const ProjectInput = z.object({
     .enum(["planning", "in_progress", "blocked", "review", "done"])
     .default("planning"),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
-  progress: z.coerce.number().int().min(0).max(100).default(0),
   deadline: z
     .string()
     .trim()
@@ -39,11 +38,6 @@ const DeleteProjectInput = z.object({
 const UpdateNotesInput = z.object({
   projectId: z.string().uuid(),
   notes: z.string().trim().max(4000),
-});
-
-const UpdateProgressInput = z.object({
-  projectId: z.string().uuid(),
-  progress: z.coerce.number().int().min(0).max(100),
 });
 
 const UpdateStatusInput = z.object({
@@ -86,7 +80,7 @@ export async function createProject(
     client: parsed.data.client,
     status: parsed.data.status,
     priority: parsed.data.priority,
-    progress: parsed.data.progress,
+    // progress is derived from tasks by a DB trigger; starts at 0 (no tasks).
     deadline: parsed.data.deadline ?? null,
     notes: parsed.data.notes ?? null,
     category_id: parsed.data.categoryId ?? null,
@@ -135,7 +129,7 @@ export async function updateProject(
       client: parsed.data.client,
       status: parsed.data.status,
       priority: parsed.data.priority,
-      progress: parsed.data.progress,
+      // progress is derived from tasks by a DB trigger, never set here.
       deadline: parsed.data.deadline ?? null,
       category_id: parsed.data.categoryId ?? null,
       updated_at: new Date().toISOString(),
@@ -161,19 +155,6 @@ export async function updateProjectNotes(formData: FormData): Promise<void> {
     .eq("id", parsed.projectId);
   if (error) throw new Error(error.message);
   revalidatePath(`/projects/${parsed.projectId}`);
-}
-
-export async function updateProjectProgress(formData: FormData): Promise<void> {
-  const parsed = UpdateProgressInput.parse(Object.fromEntries(formData));
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
-    .from("projects")
-    .update({ progress: parsed.progress })
-    .eq("id", parsed.projectId);
-  if (error) throw new Error(error.message);
-  revalidatePath(`/projects/${parsed.projectId}`);
-  revalidatePath("/");
-  revalidatePath("/projects");
 }
 
 export async function updateProjectStatus(formData: FormData): Promise<void> {

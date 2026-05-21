@@ -127,22 +127,9 @@ export function NewProjectDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="progress">Progress %</Label>
-                <Input
-                  id="progress"
-                  name="progress"
-                  type="number"
-                  min={0}
-                  max={100}
-                  defaultValue={0}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="deadline">Deadline</Label>
-                <Input id="deadline" name="deadline" type="date" />
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="deadline">Deadline</Label>
+              <Input id="deadline" name="deadline" type="date" />
             </div>
 
             {state.message && !state.ok ? (

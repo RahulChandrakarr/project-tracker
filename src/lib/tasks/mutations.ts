@@ -116,7 +116,10 @@ export async function createTask(
 
   if (error) return { ok: false, message: error.message };
 
+  // Adding a task changes the project's derived progress, so refresh the lists.
   revalidatePath(`/projects/${parsed.data.projectId}`);
+  revalidatePath("/");
+  revalidatePath("/projects");
   return { ok: true };
 }
 
@@ -133,7 +136,10 @@ export async function updateTaskStatus(formData: FormData): Promise<void> {
     })
     .eq("id", parsed.taskId);
   if (error) throw new Error(error.message);
+  // Status drives the project's derived progress; refresh the lists too.
   revalidatePath(`/projects/${parsed.projectId}`);
+  revalidatePath("/");
+  revalidatePath("/projects");
 }
 
 export async function updateTaskAssignee(formData: FormData): Promise<void> {
@@ -163,7 +169,10 @@ export async function deleteTask(formData: FormData): Promise<void> {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("tasks").delete().eq("id", parsed.taskId);
   if (error) throw new Error(error.message);
+  // Removing a task changes the project's derived progress.
   revalidatePath(`/projects/${parsed.projectId}`);
+  revalidatePath("/");
+  revalidatePath("/projects");
 }
 
 /**

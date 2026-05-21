@@ -274,6 +274,10 @@ export function TasksCard({
           </p>
         ) : (
           <DndContext
+            // Stable id so dnd-kit's generated aria-describedby matches between
+            // server and client render (its default uses a module counter that
+            // drifts across SSR requests, causing a hydration mismatch).
+            id={`tasks-${projectId}`}
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}

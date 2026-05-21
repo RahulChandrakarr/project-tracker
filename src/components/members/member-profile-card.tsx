@@ -19,13 +19,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  updateAvatar,
   updateProfileDetails,
   type ProfileFormState,
 } from "@/lib/profile/actions";
 import type { MemberProfile } from "@/lib/profile/queries";
 import { APP_ROLE_LABEL } from "@/types/project";
 import { formatDate } from "@/lib/format";
+
+import { AvatarCropDialog } from "./avatar-cropper";
 
 const INITIAL: ProfileFormState = { ok: false };
 
@@ -48,10 +49,7 @@ export function MemberProfileCard({
     INITIAL,
   );
 
-  const [avatarState, avatarAction, avatarPending] = useActionState(
-    updateAvatar,
-    INITIAL,
-  );
+  const [cropSrc, setCropSrc] = React.useState<string | null>(null);
 
   const initials = (profile.fullName ?? profile.email ?? "?")
     .slice(0, 2)
@@ -79,23 +77,31 @@ export function MemberProfileCard({
 
             {canEdit ? (
               <>
-                <form action={avatarAction} className="hidden">
-                  <input type="hidden" name="userId" value={profile.id} />
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    name="file"
-                    accept="image/*"
-                    onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                  />
-                </form>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.currentTarget.files?.[0];
+                    e.currentTarget.value = ""; // allow re-picking the same file
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () =>
+                      setCropSrc(
+                        typeof reader.result === "string"
+                          ? reader.result
+                          : null,
+                      );
+                    reader.readAsDataURL(file);
+                  }}
+                />
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  disabled={avatarPending}
                   aria-label="Change photo"
                   title="Change photo"
-                  className="absolute -bottom-1 -right-1 grid size-8 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-muted-foreground)] shadow-sm transition-colors hover:text-[var(--color-foreground)] disabled:opacity-50"
+                  className="absolute -bottom-1 -right-1 grid size-8 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-muted-foreground)] shadow-sm transition-colors hover:text-[var(--color-foreground)]"
                 >
                   <Camera className="size-4" />
                 </button>
@@ -152,16 +158,6 @@ export function MemberProfileCard({
 
             {profile.bio ? (
               <p className="mt-4 whitespace-pre-wrap text-sm">{profile.bio}</p>
-            ) : null}
-
-            {avatarPending ? (
-              <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-                Uploading photo...
-              </p>
-            ) : avatarState.message && !avatarState.ok ? (
-              <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-                {avatarState.message}
-              </p>
             ) : null}
           </div>
         </div>
@@ -260,6 +256,14 @@ export function MemberProfileCard({
           </form>
         </DialogContent>
       </Dialog>
+
+      {canEdit ? (
+        <AvatarCropDialog
+          userId={profile.id}
+          src={cropSrc}
+          onClose={() => setCropSrc(null)}
+        />
+      ) : null}
     </Card>
   );
 }

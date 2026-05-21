@@ -20,14 +20,19 @@ export function MemberReport({ report }: { report: MemberReportData }) {
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
+          label="Projects"
+          value={report.projectsInvolved}
+          hint={`${report.projectCount} with assigned tasks`}
+        />
+        <StatCard
           label="Tasks assigned"
           value={report.totalAssigned}
-          hint={`Across ${report.projectCount} project${report.projectCount === 1 ? "" : "s"}`}
+          hint={`${report.completionRate}% completion rate`}
         />
         <StatCard
           label="Completed"
           value={report.completed}
-          hint={`${report.completionRate}% completion rate`}
+          hint={`${report.completedThisWeek} this week`}
         />
         <StatCard
           label="In progress"
@@ -38,6 +43,25 @@ export function MemberReport({ report }: { report: MemberReportData }) {
           label="Overdue"
           value={report.overdue}
           hint={report.overdue === 0 ? "All on track" : "Past due date"}
+        />
+        <StatCard
+          label="Done this month"
+          value={report.completedThisMonth}
+          hint={`${report.completedThisWeek} in the last week`}
+        />
+        <StatCard
+          label="Avg. completion"
+          value={
+            report.avgCompletionDays === null
+              ? "—"
+              : `${report.avgCompletionDays}d`
+          }
+          hint="From created to done"
+        />
+        <StatCard
+          label="On-time rate"
+          value={report.onTimeRate === null ? "—" : `${report.onTimeRate}%`}
+          hint="Tasks done by their due date"
         />
       </div>
 
