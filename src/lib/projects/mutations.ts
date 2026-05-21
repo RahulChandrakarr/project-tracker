@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -25,6 +26,14 @@ const ProjectInput = z.object({
     .uuid()
     .optional()
     .or(z.literal("").transform(() => undefined)),
+});
+
+const UpdateProjectInput = ProjectInput.extend({
+  id: z.string().uuid(),
+});
+
+const DeleteProjectInput = z.object({
+  id: z.string().uuid(),
 });
 
 const UpdateNotesInput = z.object({
@@ -93,6 +102,56 @@ export async function createProject(
   return { ok: true };
 }
 
+export async function updateProject(
+  _prev: ProjectFormState,
+  formData: FormData,
+): Promise<ProjectFormState> {
+  const parsed = UpdateProjectInput.safeParse(Object.fromEntries(formData));
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0]?.toString() ?? "_";
+      fieldErrors[key] = issue.message;
+    }
+    return { ok: false, message: "Check the fields below.", fieldErrors };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, message: "You must be signed in." };
+  }
+
+  // Notes are managed separately (project notes card), so they are left
+  // untouched here to avoid wiping them with an empty form value.
+  const { error } = await supabase
+    .from("projects")
+    .update({
+      name: parsed.data.name,
+      client: parsed.data.client,
+      status: parsed.data.status,
+      priority: parsed.data.priority,
+      progress: parsed.data.progress,
+      deadline: parsed.data.deadline ?? null,
+      category_id: parsed.data.categoryId ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.id);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${parsed.data.id}`);
+  return { ok: true };
+}
+
 export async function updateProjectNotes(formData: FormData): Promise<void> {
   const parsed = UpdateNotesInput.parse(Object.fromEntries(formData));
   const supabase = await createSupabaseServerClient();
@@ -130,10 +189,15 @@ export async function updateProjectStatus(formData: FormData): Promise<void> {
   revalidatePath("/projects");
 }
 
-export async function deleteProject(id: string): Promise<void> {
+export async function deleteProject(formData: FormData): Promise<void> {
+  const parsed = DeleteProjectInput.parse(Object.fromEntries(formData));
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("projects").delete().eq("id", id);
+  const { error } = await supabase
+    .from("projects")
+    .delete()
+    .eq("id", parsed.id);
   if (error) throw new Error(error.message);
   revalidatePath("/");
   revalidatePath("/projects");
+  redirect("/projects");
 }

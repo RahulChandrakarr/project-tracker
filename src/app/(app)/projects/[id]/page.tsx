@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EditProjectDialog } from "@/components/projects/edit-project-dialog";
 import { MembersCard } from "@/components/projects/members-card";
 import { ProgressEditor } from "@/components/projects/progress-editor";
 import { ProjectDocumentsCard } from "@/components/projects/project-documents-card";
@@ -92,6 +93,9 @@ export default async function ProjectDetailPage({
             <span className="text-[var(--color-muted-foreground)]">
               Due {formatDate(project.deadline)}
             </span>
+            {canManage ? (
+              <EditProjectDialog project={project} categories={categories} />
+            ) : null}
           </div>
         </div>
 
