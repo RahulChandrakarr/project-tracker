@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
+  NotebookPen,
   Tags,
   Users,
   Mail,
@@ -25,6 +26,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/notebook", label: "Notebook", icon: NotebookPen },
   { href: "/categories", label: "Categories", icon: Tags, adminOnly: true },
   { href: "/members", label: "Members", icon: Users, adminOnly: true },
   { href: "/invite", label: "Invite", icon: Mail, adminOnly: true },

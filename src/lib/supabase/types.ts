@@ -46,6 +46,7 @@ export type Database = {
           location: string | null;
           bio: string | null;
           role: AppRole;
+          approved: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -58,6 +59,7 @@ export type Database = {
           location?: string | null;
           bio?: string | null;
           role?: AppRole;
+          approved?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -70,6 +72,7 @@ export type Database = {
           location?: string | null;
           bio?: string | null;
           role?: AppRole;
+          approved?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -249,6 +252,72 @@ export type Database = {
         Update: {
           name?: string;
           url?: string;
+        };
+        Relationships: [];
+      };
+      notebooks: {
+        Row: {
+          id: string;
+          owner_id: string;
+          title: string;
+          theme: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          title?: string;
+          theme?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          theme?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      notebook_pages: {
+        Row: {
+          id: string;
+          notebook_id: string;
+          position: number;
+          title: string | null;
+          paper_style: string;
+          content: Json;
+          show_guides: boolean;
+          rounded: boolean;
+          shadow: boolean;
+          bookmarked: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          notebook_id: string;
+          position?: number;
+          title?: string | null;
+          paper_style?: string;
+          content?: Json;
+          show_guides?: boolean;
+          rounded?: boolean;
+          shadow?: boolean;
+          bookmarked?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          position?: number;
+          title?: string | null;
+          paper_style?: string;
+          content?: Json;
+          show_guides?: boolean;
+          rounded?: boolean;
+          shadow?: boolean;
+          bookmarked?: boolean;
+          updated_at?: string;
         };
         Relationships: [];
       };
