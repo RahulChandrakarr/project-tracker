@@ -140,6 +140,15 @@ export function paperLinePitch(style: PaperStyle): number | null {
   return LINE_PITCH[style] ?? null;
 }
 
+// Cornell layout: the cue column divider sits this far from the page's left
+// padding edge; the main notes (and typed text) live to its right.
+const CORNELL_CUE = 104;
+
+/** Left inset (px) the typed text should start at, e.g. past Cornell's cue column. */
+export function paperTextInsetLeft(style: PaperStyle): number | null {
+  return style === "cornell" ? CORNELL_CUE + 16 : null;
+}
+
 function ruled(height: number): CSSProperties {
   return {
     backgroundImage: RULE,
@@ -177,9 +186,13 @@ export function paperBackground(style: PaperStyle): CSSProperties {
       };
     case "cornell":
       return {
-        backgroundImage: `${RULE}, linear-gradient(to right, transparent 104px, var(--nb-accent) 104px, var(--nb-accent) 105px, transparent 105px)`,
-        backgroundSize: "100% 28px, 100% 100%",
-        backgroundRepeat: "repeat, no-repeat",
+        // ruled rows + vertical cue-column divider + bottom summary divider
+        backgroundImage:
+          `${RULE}, ` +
+          `linear-gradient(to right, transparent ${CORNELL_CUE}px, var(--nb-accent) ${CORNELL_CUE}px, var(--nb-accent) ${CORNELL_CUE + 1}px, transparent ${CORNELL_CUE + 1}px), ` +
+          "linear-gradient(to bottom, transparent calc(100% - 110px), var(--nb-accent) calc(100% - 110px), var(--nb-accent) calc(100% - 109px), transparent calc(100% - 109px))",
+        backgroundSize: "100% 28px, 100% 100%, 100% 100%",
+        backgroundRepeat: "repeat, no-repeat, no-repeat",
       };
     case "music":
       return { backgroundImage: MUSIC_STAFF };

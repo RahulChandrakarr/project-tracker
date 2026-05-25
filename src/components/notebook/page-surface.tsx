@@ -5,7 +5,11 @@ import { Bookmark } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-import { paperBackground, paperLinePitch } from "./notebook-theme";
+import {
+  paperBackground,
+  paperLinePitch,
+  paperTextInsetLeft,
+} from "./notebook-theme";
 import type { PageState } from "./notebook-store";
 
 /**
@@ -39,6 +43,10 @@ export function PageSurface({
     contentStyle.paddingTop = `${pitch}px`;
     (contentStyle as Record<string, string>)["--nb-line"] = `${pitch}px`;
   }
+  const leftInset = page.show_guides
+    ? paperTextInsetLeft(page.paper_style)
+    : null;
+  if (leftInset != null) contentStyle.paddingLeft = `${leftInset}px`;
 
   return (
     <div
