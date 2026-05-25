@@ -9,6 +9,7 @@ export type AppUser = {
   email: string | null;
   fullName: string | null;
   role: AppRole;
+  approved: boolean;
   createdAt: string;
   lastSignInAt: string | null;
 };
@@ -36,7 +37,7 @@ export async function listAllUsers(): Promise<AppUser[]> {
 
   const { data: profiles, error: profilesError } = await admin
     .from("profiles")
-    .select("id, full_name, role")
+    .select("id, full_name, role, approved")
     .in("id", ids);
   if (profilesError) throw new Error(profilesError.message);
 
@@ -50,6 +51,7 @@ export async function listAllUsers(): Promise<AppUser[]> {
         email: u.email ?? null,
         fullName: p?.full_name ?? null,
         role: p?.role ?? "member",
+        approved: p?.approved ?? false,
         createdAt: u.created_at ?? "",
         lastSignInAt: u.last_sign_in_at ?? null,
       };

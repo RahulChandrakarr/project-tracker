@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { deleteUser, updateUserRole } from "@/lib/users/actions";
+import { approveUser, deleteUser, updateUserRole } from "@/lib/users/actions";
 import type { AppUser } from "@/lib/users/queries";
 import { formatDate } from "@/lib/format";
 import { APP_ROLE_LABEL } from "@/types/project";
@@ -81,6 +81,16 @@ export function UsersTable({
                 </div>
               </div>
 
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <ApprovalBadge approved={u.approved} />
+                {!u.approved && !isSelf ? (
+                  <AcceptButton
+                    userId={u.id}
+                    label={u.fullName ?? u.email ?? "this user"}
+                  />
+                ) : null}
+              </div>
+
               <div className="mt-3 flex items-center justify-between gap-2">
                 {isSelf ? (
                   <Badge variant="outline">{APP_ROLE_LABEL[u.role]}</Badge>
@@ -133,7 +143,8 @@ export function UsersTable({
             <TableHead>Role</TableHead>
             <TableHead>Joined</TableHead>
             <TableHead>Last sign-in</TableHead>
-            <TableHead className="w-[120px] text-right">Actions</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="w-[200px] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -195,8 +206,17 @@ export function UsersTable({
                 <TableCell className="text-[var(--color-muted-foreground)]">
                   {u.lastSignInAt ? formatDate(u.lastSignInAt) : "Never"}
                 </TableCell>
+                <TableCell>
+                  <ApprovalBadge approved={u.approved} />
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
+                    {!u.approved && !isSelf ? (
+                      <AcceptButton
+                        userId={u.id}
+                        label={u.fullName ?? u.email ?? "this user"}
+                      />
+                    ) : null}
                     <SetPasswordDialog
                       userId={u.id}
                       label={u.fullName ?? u.email ?? "this user"}
@@ -223,5 +243,32 @@ export function UsersTable({
       </Table>
       </div>
     </>
+  );
+}
+
+function ApprovalBadge({ approved }: { approved: boolean }) {
+  return approved ? (
+    <Badge variant="outline" className="text-[var(--color-muted-foreground)]">
+      Active
+    </Badge>
+  ) : (
+    <Badge
+      variant="outline"
+      className="border-[var(--color-foreground)] font-medium"
+    >
+      Pending
+    </Badge>
+  );
+}
+
+function AcceptButton({ userId, label }: { userId: string; label: string }) {
+  return (
+    <form action={approveUser} className="inline">
+      <input type="hidden" name="userId" value={userId} />
+      <Button type="submit" size="sm" aria-label={`Accept ${label}`}>
+        <Check />
+        Accept
+      </Button>
+    </form>
   );
 }

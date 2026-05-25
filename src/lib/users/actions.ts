@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { assertAppAdmin } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { UpdateDto } from "@/lib/supabase/types";
 
 const CreateUserInput = z.object({
   email: z.string().trim().email("Enter a valid email"),
@@ -30,6 +31,10 @@ const SetUserPasswordInput = z.object({
 });
 
 const DeleteUserInput = z.object({
+  userId: z.string().uuid(),
+});
+
+const ApproveUserInput = z.object({
   userId: z.string().uuid(),
 });
 
@@ -68,20 +73,21 @@ export async function createUser(
     return { ok: false, message: error.message };
   }
 
-  // The on_auth_user_created trigger inserts a profile with the default role
-  // ('member'). If the admin chose 'admin', update it.
-  if (parsed.data.role === "admin") {
-    const { error: roleError } = await admin
-      .from("profiles")
-      .update({ role: "admin" })
-      .eq("id", data.user.id);
-    if (roleError) {
-      return {
-        ok: true,
-        message:
-          "User created, but failed to set admin role: " + roleError.message,
-      };
-    }
+  // Admin-created accounts are deliberate, so auto-approve them. Also bump the
+  // role if the admin picked 'admin' (the trigger defaults profiles to member).
+  const update: UpdateDto<"profiles"> = { approved: true };
+  if (parsed.data.role === "admin") update.role = "admin";
+  const { error: profileError } = await admin
+    .from("profiles")
+    .update(update)
+    .eq("id", data.user.id);
+  if (profileError) {
+    return {
+      ok: true,
+      message:
+        "User created, but failed to finalize their profile: " +
+        profileError.message,
+    };
   }
 
   revalidatePath("/members");
@@ -123,18 +129,22 @@ export async function inviteUser(
 
   if (error) return { ok: false, message: error.message };
 
-  // The on_auth_user_created trigger fires for invited users too, so a
-  // profile row exists by the time we get the response. Set the role.
-  if (data.user && parsed.data.role === "admin") {
-    const { error: roleError } = await admin
+  // The on_auth_user_created trigger fires for invited users too, so a profile
+  // row exists by now. Invited users are deliberate, so auto-approve, and set
+  // the role if the admin picked 'admin'.
+  if (data.user) {
+    const update: UpdateDto<"profiles"> = { approved: true };
+    if (parsed.data.role === "admin") update.role = "admin";
+    const { error: profileError } = await admin
       .from("profiles")
-      .update({ role: "admin" })
+      .update(update)
       .eq("id", data.user.id);
-    if (roleError) {
+    if (profileError) {
       return {
         ok: true,
         message:
-          "Invite sent, but failed to set admin role: " + roleError.message,
+          "Invite sent, but failed to finalize their profile: " +
+          profileError.message,
       };
     }
   }
@@ -173,6 +183,22 @@ export async function setUserPassword(
 
   revalidatePath("/members");
   return { ok: true, message: "Password updated." };
+}
+
+/** Accept a pending (self-registered) user into the workspace. */
+export async function approveUser(formData: FormData): Promise<void> {
+  await assertAppAdmin();
+
+  const parsed = ApproveUserInput.parse(Object.fromEntries(formData));
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({ approved: true })
+    .eq("id", parsed.userId);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/members");
 }
 
 export async function updateUserRole(formData: FormData): Promise<void> {
