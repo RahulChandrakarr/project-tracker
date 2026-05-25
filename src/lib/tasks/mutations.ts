@@ -140,6 +140,8 @@ export async function updateTaskStatus(formData: FormData): Promise<void> {
   revalidatePath(`/projects/${parsed.projectId}`);
   revalidatePath("/");
   revalidatePath("/projects");
+  // Status feeds the per-member report + task tables on every profile page.
+  revalidatePath("/members/[id]", "page");
 }
 
 export async function updateTaskAssignee(formData: FormData): Promise<void> {

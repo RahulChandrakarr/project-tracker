@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, NotebookPen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DashboardTasksTable } from "@/components/projects/dashboard-tasks-table";
 import { MemberProfileCard } from "@/components/members/member-profile-card";
 import { MemberReport } from "@/components/members/member-report";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getMemberProfile, getMemberReport } from "@/lib/profile/queries";
+import {
+  getMemberCompletedTasks,
+  getMemberOpenTasks,
+  getMemberProfile,
+  getMemberReport,
+} from "@/lib/profile/queries";
 
 export default async function MemberDetailPage({
   params,
@@ -23,27 +29,76 @@ export default async function MemberDetailPage({
   // Admins can edit anyone; everyone can edit their own profile.
   const canEdit = isSelf || me.role === "admin";
 
-  const [profile, report] = await Promise.all([
+  const [profile, report, openTasks, completedTasks] = await Promise.all([
     getMemberProfile(id),
     getMemberReport(id),
+    getMemberOpenTasks(id),
+    getMemberCompletedTasks(id),
   ]);
 
   if (!profile) notFound();
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
-      {me.role === "admin" ? (
-        <Button asChild variant="ghost" size="sm" className="w-fit">
-          <Link href="/members">
-            <ChevronLeft />
-            All members
-          </Link>
-        </Button>
-      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {me.role === "admin" ? (
+          <Button asChild variant="ghost" size="sm" className="w-fit">
+            <Link href="/members">
+              <ChevronLeft />
+              All members
+            </Link>
+          </Button>
+        ) : (
+          <span />
+        )}
+
+        {isSelf ? (
+          <Button asChild variant="outline" size="sm" className="w-fit">
+            <Link href="/notebook">
+              <NotebookPen />
+              Open my notebook
+            </Link>
+          </Button>
+        ) : null}
+      </div>
 
       <MemberProfileCard profile={profile} canEdit={canEdit} />
 
       <MemberReport report={report} />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">
+              Open tasks
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+              Assigned and not done, soonest deadline first.
+            </p>
+          </div>
+          <DashboardTasksTable
+            tasks={openTasks}
+            variant="open"
+            emptyMessage="No open tasks assigned."
+          />
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">
+              Recently completed
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+              Assigned tasks marked done most recently.
+            </p>
+          </div>
+          <DashboardTasksTable
+            tasks={completedTasks}
+            variant="completed"
+            emptyMessage="Nothing completed yet."
+          />
+        </section>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,9 @@ import "server-only";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AppRole, TaskStatus } from "@/lib/supabase/types";
+import type { DashboardTask, TaskRow } from "@/lib/tasks/queries";
+
+type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
 export type MemberProfile = {
   id: string;
@@ -246,6 +249,74 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
     series,
     recentTasks,
   };
+}
+
+/**
+ * Open (not-done) tasks assigned to a member, soonest deadline first. Uses the
+ * admin client (RLS-bypassing) behind `assertCanViewMember` so an app admin
+ * can see another member's tasks across every project, matching getMemberReport.
+ */
+export async function getMemberOpenTasks(
+  userId: string,
+  limit = 8,
+): Promise<DashboardTask[]> {
+  await assertCanViewMember(userId);
+  const admin = createSupabaseAdminClient();
+
+  const { data, error } = await admin
+    .from("tasks")
+    .select("*")
+    .eq("assignee_id", userId)
+    .neq("status", "done")
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+
+  return attachProjectNames(admin, data ?? []);
+}
+
+/** Tasks assigned to a member and marked done, most recently completed first. */
+export async function getMemberCompletedTasks(
+  userId: string,
+  limit = 8,
+): Promise<DashboardTask[]> {
+  await assertCanViewMember(userId);
+  const admin = createSupabaseAdminClient();
+
+  const { data, error } = await admin
+    .from("tasks")
+    .select("*")
+    .eq("assignee_id", userId)
+    .eq("status", "done")
+    .not("completed_at", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+
+  return attachProjectNames(admin, data ?? []);
+}
+
+/** Pairs each task with its project's id + name in one round trip. */
+async function attachProjectNames(
+  admin: AdminClient,
+  rows: TaskRow[],
+): Promise<DashboardTask[]> {
+  if (rows.length === 0) return [];
+
+  const projectIds = Array.from(new Set(rows.map((t) => t.project_id)));
+  const { data: projects } = await admin
+    .from("projects")
+    .select("id, name")
+    .in("id", projectIds);
+  const nameById = new Map(projects?.map((p) => [p.id, p.name]) ?? []);
+
+  return rows.map((t) => ({
+    ...t,
+    project: nameById.has(t.project_id)
+      ? { id: t.project_id, name: nameById.get(t.project_id)! }
+      : null,
+  }));
 }
 
 /** Count completed/created tasks falling inside each period window. */
