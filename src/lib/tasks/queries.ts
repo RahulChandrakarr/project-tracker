@@ -56,6 +56,84 @@ export async function listProjectTasks(projectId: string): Promise<Task[]> {
 }
 
 /**
+ * A task paired with the project it belongs to. Used by the dashboard's
+ * cross-project task tables, where each row links back to its project.
+ */
+export type DashboardTask = TaskRow & {
+  project: { id: string; name: string } | null;
+};
+
+type ServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+/**
+ * Attaches the owning project's id + name to each task. Mirrors the assignee
+ * hydration in `listProjectTasks`: a separate `in` query instead of a
+ * PostgREST embed (the generated types carry no FK relationship for tasks).
+ */
+async function attachProjects(
+  supabase: ServerClient,
+  tasks: TaskRow[],
+): Promise<DashboardTask[]> {
+  if (!tasks.length) return [];
+
+  const projectIds = Array.from(new Set(tasks.map((t) => t.project_id)));
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name")
+    .in("id", projectIds);
+  const nameById = new Map(projects?.map((p) => [p.id, p.name]) ?? []);
+
+  return tasks.map((t) => ({
+    ...t,
+    project: nameById.has(t.project_id)
+      ? { id: t.project_id, name: nameById.get(t.project_id)! }
+      : null,
+  }));
+}
+
+/**
+ * Open (not-done) tasks across every project the viewer can see, soonest
+ * deadline first (tasks with no deadline sink to the end). RLS scopes this to
+ * the viewer's projects, same as `listProjects`.
+ */
+export async function listOpenTasks(limit = 8): Promise<DashboardTask[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: tasks, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .neq("status", "done")
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(`Failed to load open tasks: ${error.message}`);
+  return attachProjects(supabase, tasks ?? []);
+}
+
+/**
+ * Tasks marked done across every visible project, most recently completed
+ * first. `completed_at` is stamped by `updateTaskStatus` when a task goes done.
+ */
+export async function listRecentlyCompletedTasks(
+  limit = 8,
+): Promise<DashboardTask[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: tasks, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("status", "done")
+    .not("completed_at", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(limit);
+
+  if (error)
+    throw new Error(`Failed to load completed tasks: ${error.message}`);
+  return attachProjects(supabase, tasks ?? []);
+}
+
+/**
  * Stable sort that floats done tasks to the bottom of a sibling group while
  * preserving the incoming (position) order within the done and not-done
  * groups. Array.prototype.sort is stable, so equal keys keep their order.

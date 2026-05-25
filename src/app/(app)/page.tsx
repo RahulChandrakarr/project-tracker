@@ -4,10 +4,15 @@ import { ArrowUpRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CategoryFilter } from "@/components/projects/category-filter";
+import { DashboardTasksTable } from "@/components/projects/dashboard-tasks-table";
 import { ProjectsTable } from "@/components/projects/projects-table";
 import { StatCard } from "@/components/projects/stat-card";
 import { listProjects, matchesCategory } from "@/lib/projects/queries";
 import { listCategories } from "@/lib/categories/queries";
+import {
+  listOpenTasks,
+  listRecentlyCompletedTasks,
+} from "@/lib/tasks/queries";
 import { daysUntil } from "@/lib/format";
 
 export default async function DashboardPage({
@@ -17,10 +22,13 @@ export default async function DashboardPage({
 }) {
   const { category } = await searchParams;
 
-  const [allProjects, categories] = await Promise.all([
-    listProjects(),
-    listCategories(),
-  ]);
+  const [allProjects, categories, openTasks, completedTasks] =
+    await Promise.all([
+      listProjects(),
+      listCategories(),
+      listOpenTasks(),
+      listRecentlyCompletedTasks(),
+    ]);
 
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   const projects = allProjects.filter((p) => matchesCategory(p, category));
@@ -76,6 +84,40 @@ export default async function DashboardPage({
         </div>
         <ProjectsTable projects={recent} categoryNameById={categoryNameById} />
       </section>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">
+              Open tasks
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+              Not done yet, soonest deadline first.
+            </p>
+          </div>
+          <DashboardTasksTable
+            tasks={openTasks}
+            variant="open"
+            emptyMessage="No open tasks. Everything's done."
+          />
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight">
+              Recently completed
+            </h2>
+            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+              Marked done most recently.
+            </p>
+          </div>
+          <DashboardTasksTable
+            tasks={completedTasks}
+            variant="completed"
+            emptyMessage="Nothing completed yet."
+          />
+        </section>
+      </div>
     </div>
   );
 }
