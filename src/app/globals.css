@@ -496,6 +496,20 @@
   pointer-events: none;
 }
 
+.nb-page-title {
+  width: 100%;
+  padding: 0 0.25rem;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--nb-ink);
+}
+.nb-page-title::placeholder {
+  color: var(--nb-ink-soft);
+}
+
 /* Drawing layer: a page-sized canvas above the text. */
 .nb-canvas {
   position: absolute;

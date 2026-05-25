@@ -5,7 +5,11 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
 import { Brush, PenLine } from "lucide-react";
 
-import { updatePageContent, updatePageDrawing } from "@/lib/notebook/mutations";
+import {
+  updatePageContent,
+  updatePageDrawing,
+  updatePageStyle,
+} from "@/lib/notebook/mutations";
 import type { Json } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +38,25 @@ export function PageWorkspace({
 }) {
   const store = useNotebookStore();
   const [mode, setMode] = React.useState<Mode>("write");
+
+  // ----- page title -----
+  const [title, setTitle] = React.useState(page.title ?? "");
+  const titleTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestTitle = React.useRef(page.title ?? "");
+  const titleDirty = React.useRef(false);
+
+  function onTitle(value: string) {
+    setTitle(value);
+    latestTitle.current = value;
+    titleDirty.current = true;
+    const next = value.trim() ? value : null;
+    store.getState().updatePage(page.id, { title: next });
+    if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = setTimeout(() => {
+      void updatePageStyle(page.id, { title: next });
+      titleDirty.current = false;
+    }, 600);
+  }
 
   // ----- text layer (tiptap) -----
   const [status, setStatus] = React.useState<SaveStatus>("idle");
@@ -127,9 +150,15 @@ export function PageWorkspace({
     return () => {
       if (textTimer.current) clearTimeout(textTimer.current);
       if (drawTimer.current) clearTimeout(drawTimer.current);
+      if (titleTimer.current) clearTimeout(titleTimer.current);
       if (contentDirty.current) {
         void updatePageContent(page.id, latestContent.current);
         store.getState().updatePage(page.id, { content: latestContent.current });
+      }
+      if (titleDirty.current) {
+        void updatePageStyle(page.id, {
+          title: latestTitle.current.trim() ? latestTitle.current : null,
+        });
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,6 +166,15 @@ export function PageWorkspace({
 
   return (
     <div className="flex h-full flex-col gap-3">
+      <input
+        value={title}
+        onChange={(e) => onTitle(e.target.value)}
+        placeholder="Untitled page"
+        aria-label="Page title"
+        maxLength={120}
+        className="nb-page-title"
+      />
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="nb-segment" role="group" aria-label="Page mode">
           <button
