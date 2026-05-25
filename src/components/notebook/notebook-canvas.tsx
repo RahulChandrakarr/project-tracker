@@ -5,7 +5,9 @@ import HTMLFlipBook from "react-pageflip";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { PageEditor } from "./page-editor";
+import { DrawingCanvas } from "./drawing-canvas";
+import { asDrawing } from "./drawing";
+import { PageWorkspace } from "./page-workspace";
 import { PageSurface } from "./page-surface";
 import { StaticPageBody } from "./static-page-body";
 import { useNotebook, useNotebookStore } from "./notebook-store";
@@ -126,7 +128,7 @@ export function NotebookCanvas() {
               exit={{ opacity: 0, rotateY: 10, x: -30 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             >
-              <PageEditor page={page} pageNumber={currentIndex + 1} />
+              <PageWorkspace page={page} pageNumber={currentIndex + 1} />
             </motion.div>
           </AnimatePresence>
         </div>
@@ -165,7 +167,13 @@ export function NotebookCanvas() {
         >
           {pages.map((p, i) => (
             <BookPage key={p.id}>
-              <PageSurface page={p} pageNumber={i + 1}>
+              <PageSurface
+                page={p}
+                pageNumber={i + 1}
+                overlay={
+                  <DrawingCanvas editable={false} drawing={asDrawing(p.drawing)} />
+                }
+              >
                 <StaticPageBody content={p.content} />
               </PageSurface>
             </BookPage>

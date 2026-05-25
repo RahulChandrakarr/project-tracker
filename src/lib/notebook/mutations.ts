@@ -60,6 +60,7 @@ export async function duplicatePage(pageId: string): Promise<NotebookPage> {
       title: src.title,
       paper_style: src.paper_style,
       content: src.content,
+      drawing: src.drawing,
       show_guides: src.show_guides,
       rounded: src.rounded,
       shadow: src.shadow,
@@ -83,6 +84,23 @@ export async function updatePageContent(
   const { error } = await supabase
     .from("notebook_pages")
     .update({ content })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** Autosave: persist a page's freehand drawing layer. */
+export async function updatePageDrawing(
+  pageId: string,
+  drawing: Json,
+): Promise<void> {
+  const id = uuid.parse(pageId);
+  if (JSON.stringify(drawing).length > 4_000_000) {
+    throw new Error("Drawing is too large.");
+  }
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("notebook_pages")
+    .update({ drawing })
     .eq("id", id);
   if (error) throw new Error(error.message);
 }

@@ -418,7 +418,9 @@
 .nb-prose {
   color: var(--nb-ink);
   font-family: var(--nb-font);
-  line-height: 1.75;
+  /* On lined papers --nb-line is the row pitch, so each line of writing lands
+     between two rules; elsewhere it falls back to a comfortable rhythm. */
+  line-height: var(--nb-line, 1.75rem);
 }
 .nb-editor,
 .nb-prose:focus,
@@ -426,7 +428,7 @@
   outline: none;
 }
 .nb-prose p {
-  margin: 0 0 0.5rem;
+  margin: 0;
 }
 .nb-prose h1 {
   margin: 0.4rem 0 0.6rem;
@@ -492,4 +494,16 @@
   height: 0;
   color: var(--nb-ink-soft);
   pointer-events: none;
+}
+
+/* Drawing layer: a page-sized canvas above the text. */
+.nb-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.nb-size-range {
+  width: 5rem;
+  accent-color: var(--nb-accent);
 }

@@ -5,7 +5,7 @@ import { Bookmark } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-import { paperBackground } from "./notebook-theme";
+import { paperBackground, paperLinePitch } from "./notebook-theme";
 import type { PageState } from "./notebook-store";
 
 /**
@@ -18,14 +18,27 @@ export function PageSurface({
   page,
   pageNumber,
   children,
+  overlay,
   className,
 }: {
   page: PageState;
   pageNumber: number;
   children: React.ReactNode;
+  /** A layer rendered above the page content (e.g. the drawing canvas). */
+  overlay?: React.ReactNode;
   className?: string;
 }) {
-  const guides = page.show_guides ? paperBackground(page.paper_style) : {};
+  // For lined papers, drive the text line-height (via --nb-line) and the first
+  // line's offset off the same pitch the rules use, so writing sits centred
+  // between the lines instead of drifting across them.
+  const pitch = page.show_guides ? paperLinePitch(page.paper_style) : null;
+  const contentStyle: React.CSSProperties = page.show_guides
+    ? paperBackground(page.paper_style)
+    : {};
+  if (pitch != null) {
+    contentStyle.paddingTop = `${pitch}px`;
+    (contentStyle as Record<string, string>)["--nb-line"] = `${pitch}px`;
+  }
 
   return (
     <div
@@ -53,11 +66,13 @@ export function PageSurface({
       ) : null}
 
       <div
-        className="relative flex-1 overflow-y-auto px-9 py-10 leading-7 sm:px-12"
-        style={guides}
+        className="relative flex-1 overflow-y-auto px-9 py-10 sm:px-12"
+        style={contentStyle}
       >
         {children}
       </div>
+
+      {overlay}
 
       <div
         className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[11px] tabular-nums"

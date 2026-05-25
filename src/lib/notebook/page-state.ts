@@ -13,6 +13,7 @@ export type PageState = {
   title: string | null;
   paper_style: PaperStyle;
   content: Json;
+  drawing: Json;
   show_guides: boolean;
   rounded: boolean;
   shadow: boolean;
@@ -25,6 +26,7 @@ export function pageFromRow(row: NotebookPage): PageState {
     title: row.title,
     paper_style: isPaperStyle(row.paper_style) ? row.paper_style : DEFAULT_PAPER,
     content: row.content,
+    drawing: row.drawing,
     show_guides: row.show_guides,
     rounded: row.rounded,
     shadow: row.shadow,

@@ -287,6 +287,7 @@ export type Database = {
           title: string | null;
           paper_style: string;
           content: Json;
+          drawing: Json;
           show_guides: boolean;
           rounded: boolean;
           shadow: boolean;
@@ -301,6 +302,7 @@ export type Database = {
           title?: string | null;
           paper_style?: string;
           content?: Json;
+          drawing?: Json;
           show_guides?: boolean;
           rounded?: boolean;
           shadow?: boolean;
@@ -313,6 +315,7 @@ export type Database = {
           title?: string | null;
           paper_style?: string;
           content?: Json;
+          drawing?: Json;
           show_guides?: boolean;
           rounded?: boolean;
           shadow?: boolean;

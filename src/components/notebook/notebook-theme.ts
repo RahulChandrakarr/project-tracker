@@ -118,10 +118,31 @@ const MUSIC_STAFF =
   "var(--nb-guide) 33px,var(--nb-guide) 34px,transparent 34px,transparent 44px," +
   "var(--nb-guide) 44px,var(--nb-guide) 45px,transparent 45px,transparent 78px)";
 
+// A 1px rule at the BOTTOM of each row (100% = the row height set by
+// backgroundSize). Text rows share this pitch and start one row down, so each
+// line of writing sits centred between two rules.
+const RULE =
+  "linear-gradient(to bottom, transparent calc(100% - 1px), var(--nb-guide) calc(100% - 1px))";
+
+/**
+ * Row height (px) for the lined paper styles. Pages with a pitch align their
+ * text line-height to it; null means the text uses its default rhythm.
+ */
+const LINE_PITCH: Partial<Record<PaperStyle, number>> = {
+  narrow: 24,
+  ruled: 28,
+  wide: 34,
+  cornell: 28,
+  checklist: 32,
+};
+
+export function paperLinePitch(style: PaperStyle): number | null {
+  return LINE_PITCH[style] ?? null;
+}
+
 function ruled(height: number): CSSProperties {
   return {
-    backgroundImage:
-      "linear-gradient(to bottom, var(--nb-guide) 1px, transparent 1px)",
+    backgroundImage: RULE,
     backgroundSize: `100% ${height}px`,
   };
 }
@@ -133,9 +154,9 @@ export function paperBackground(style: PaperStyle): CSSProperties {
     case "ruled":
       return ruled(28);
     case "narrow":
-      return ruled(22);
+      return ruled(24);
     case "wide":
-      return ruled(36);
+      return ruled(34);
     case "grid":
       return {
         backgroundImage:
@@ -156,8 +177,7 @@ export function paperBackground(style: PaperStyle): CSSProperties {
       };
     case "cornell":
       return {
-        backgroundImage:
-          "linear-gradient(to bottom, var(--nb-guide) 1px, transparent 1px), linear-gradient(to right, transparent 104px, var(--nb-accent) 104px, var(--nb-accent) 105px, transparent 105px)",
+        backgroundImage: `${RULE}, linear-gradient(to right, transparent 104px, var(--nb-accent) 104px, var(--nb-accent) 105px, transparent 105px)`,
         backgroundSize: "100% 28px, 100% 100%",
         backgroundRepeat: "repeat, no-repeat",
       };
@@ -165,7 +185,7 @@ export function paperBackground(style: PaperStyle): CSSProperties {
       return { backgroundImage: MUSIC_STAFF };
     case "checklist":
       return {
-        backgroundImage: `linear-gradient(to bottom, var(--nb-guide) 1px, transparent 1px), ${CHECKBOX}`,
+        backgroundImage: `${RULE}, ${CHECKBOX}`,
         backgroundSize: "100% 32px, 16px 32px",
         backgroundPosition: "0 0, 12px 0",
         backgroundRepeat: "repeat, repeat-y",
