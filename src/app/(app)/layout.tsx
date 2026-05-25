@@ -27,7 +27,7 @@ export default async function AppLayout({
   }
 
   return (
-    <AppShell user={user} role={me.role}>
+    <AppShell user={user} role={me.role} avatarUrl={me.avatarUrl}>
       {children}
     </AppShell>
   );

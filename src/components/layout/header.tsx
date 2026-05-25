@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Plus } from "lucide-react";
+import { Search } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,12 @@ export function Header({
   user,
   role,
   userId,
+  avatarUrl,
 }: {
   user: User;
   role: AppRole;
   userId: string;
+  avatarUrl: string | null;
 }) {
   const initials = (user.email ?? "?").slice(0, 2).toUpperCase();
 
@@ -34,25 +36,19 @@ export function Header({
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
-        <Button size="sm" asChild>
-          <Link href="/projects?new=1">
-            <Plus />
-            <span className="hidden sm:inline">New project</span>
-          </Link>
-        </Button>
-
-        <div className="hidden text-right text-xs leading-tight text-[var(--color-muted-foreground)] sm:block">
-          <div className="truncate font-medium text-[var(--color-foreground)]">
-            {user.email}
-          </div>
-        </div>
-
-        <div
-          className="grid size-8 place-items-center rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] text-xs font-medium"
-          aria-hidden
+        <Link
+          href={`/members/${userId}`}
+          aria-label="Your profile"
+          title="Your profile"
+          className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] text-xs font-medium transition-opacity hover:opacity-80"
         >
-          {initials}
-        </div>
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" className="size-full object-cover" />
+          ) : (
+            initials
+          )}
+        </Link>
 
         <form action={signOut} className="hidden md:block">
           <Button type="submit" variant="outline" size="sm">

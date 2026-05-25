@@ -8,6 +8,7 @@ export type CurrentUser = {
   email: string | null;
   role: AppRole;
   fullName: string | null;
+  avatarUrl: string | null;
   /** Whether an app admin has accepted this user into the workspace. */
   approved: boolean;
 };
@@ -29,7 +30,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("role, full_name, approved")
+    .select("role, full_name, avatar_url, approved")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -42,6 +43,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     email: user.email ?? null,
     role: (profile?.role ?? "member") as AppRole,
     fullName: profile?.full_name ?? null,
+    avatarUrl: profile?.avatar_url ?? null,
     approved: profile?.approved ?? false,
   };
 }
