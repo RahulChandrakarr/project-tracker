@@ -126,16 +126,16 @@ function DocumentRow({
         >
           {d.name}
         </a>
-        <div className="text-xs text-[var(--color-muted-foreground)]">
+        <div className="flex items-center gap-1 text-xs text-[var(--color-muted-foreground)]">
           {d.kind === "link" ? (
-            <span className="truncate">{d.url}</span>
+            <span className="min-w-0 truncate">{d.url}</span>
           ) : (
-            <span>
+            <span className="min-w-0 truncate">
               {d.mime_type ?? "file"} ·{" "}
               {d.size_bytes ? formatBytes(d.size_bytes) : "—"}
             </span>
           )}
-          {" · "}Added {formatDate(d.created_at)}
+          <span className="shrink-0">· Added {formatDate(d.created_at)}</span>
         </div>
       </div>
 
