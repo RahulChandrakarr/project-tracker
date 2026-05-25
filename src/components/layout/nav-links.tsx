@@ -8,7 +8,6 @@ import {
   NotebookPen,
   Tags,
   Users,
-  Mail,
   UserCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -29,7 +28,6 @@ const NAV: NavItem[] = [
   { href: "/notebook", label: "Notebook", icon: NotebookPen },
   { href: "/categories", label: "Categories", icon: Tags, adminOnly: true },
   { href: "/members", label: "Members", icon: Users, adminOnly: true },
-  { href: "/invite", label: "Invite", icon: Mail, adminOnly: true },
 ];
 
 /**
