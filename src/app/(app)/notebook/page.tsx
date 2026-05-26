@@ -1,3 +1,4 @@
+import { PageMotion, PageMotionItem } from "@/components/layout/page-motion";
 import { NotebookApp } from "@/components/notebook/notebook-app";
 import { getOrCreateMyNotebook } from "@/lib/notebook/queries";
 import { pageFromRow } from "@/lib/notebook/page-state";
@@ -12,11 +13,15 @@ export default async function NotebookPage() {
   const theme = isNotebookTheme(notebook.theme) ? notebook.theme : DEFAULT_THEME;
 
   return (
-    <NotebookApp
-      notebookId={notebook.id}
-      title={notebook.title}
-      theme={theme}
-      pages={pages.map(pageFromRow)}
-    />
+    <PageMotion className="">
+      <PageMotionItem>
+        <NotebookApp
+          notebookId={notebook.id}
+          title={notebook.title}
+          theme={theme}
+          pages={pages.map(pageFromRow)}
+        />
+      </PageMotionItem>
+    </PageMotion>
   );
 }

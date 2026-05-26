@@ -2,6 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft, NotebookPen } from "lucide-react";
 
+import {
+  PageMotion,
+  PageMotionItem,
+  PageMotionSection,
+} from "@/components/layout/page-motion";
 import { Button } from "@/components/ui/button";
 import { DashboardTasksTable } from "@/components/projects/dashboard-tasks-table";
 import { MemberProfileCard } from "@/components/members/member-profile-card";
@@ -39,8 +44,8 @@ export default async function MemberDetailPage({
   if (!profile) notFound();
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <PageMotion className="mx-auto flex max-w-7xl flex-col gap-6">
+      <PageMotionItem className="flex flex-wrap items-center justify-between gap-3">
         {me.role === "admin" ? (
           <Button asChild variant="ghost" size="sm" className="w-fit">
             <Link href="/members">
@@ -60,14 +65,18 @@ export default async function MemberDetailPage({
             </Link>
           </Button>
         ) : null}
-      </div>
+      </PageMotionItem>
 
-      <MemberProfileCard profile={profile} canEdit={canEdit} />
+      <PageMotionItem>
+        <MemberProfileCard profile={profile} canEdit={canEdit} />
+      </PageMotionItem>
 
-      <MemberReport report={report} />
+      <PageMotionItem>
+        <MemberReport report={report} />
+      </PageMotionItem>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="flex flex-col gap-3">
+      <PageMotionItem className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <PageMotionSection className="flex flex-col gap-3">
           <div>
             <h2 className="text-base font-semibold tracking-tight">
               Open tasks
@@ -81,9 +90,9 @@ export default async function MemberDetailPage({
             variant="open"
             emptyMessage="No open tasks assigned."
           />
-        </section>
+        </PageMotionSection>
 
-        <section className="flex flex-col gap-3">
+        <PageMotionSection className="flex flex-col gap-3">
           <div>
             <h2 className="text-base font-semibold tracking-tight">
               Recently completed
@@ -97,8 +106,8 @@ export default async function MemberDetailPage({
             variant="completed"
             emptyMessage="Nothing completed yet."
           />
-        </section>
-      </div>
-    </div>
+        </PageMotionSection>
+      </PageMotionItem>
+    </PageMotion>
   );
 }

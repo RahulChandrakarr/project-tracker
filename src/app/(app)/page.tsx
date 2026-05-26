@@ -4,6 +4,11 @@ import { ArrowUpRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CategoryFilter } from "@/components/projects/category-filter";
+import {
+  PageMotion,
+  PageMotionItem,
+  PageMotionSection,
+} from "@/components/layout/page-motion";
 import { DashboardTasksTable } from "@/components/projects/dashboard-tasks-table";
 import { ProjectsTable } from "@/components/projects/projects-table";
 import { StatCard } from "@/components/projects/stat-card";
@@ -44,8 +49,8 @@ export default async function DashboardPage({
   const recent = projects.slice(0, 5);
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <PageMotion>
+      <PageMotionItem className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
@@ -63,30 +68,36 @@ export default async function DashboardPage({
             </Link>
           </Button>
         </div>
-      </div>
+      </PageMotionItem>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total projects" value={total} />
-        <StatCard label="In progress" value={active} hint="Active client work" />
-        <StatCard label="Blocked" value={blocked} hint="Needs unblocking" />
-        <StatCard
-          label="Due in 14 days"
-          value={dueSoon}
-          hint="Watch the deadline"
-        />
-      </section>
+      <PageMotionSection className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Total projects", value: total },
+          { label: "In progress", value: active, hint: "Active client work" },
+          { label: "Blocked", value: blocked, hint: "Needs unblocking" },
+          {
+            label: "Due in 14 days",
+            value: dueSoon,
+            hint: "Watch the deadline",
+          },
+        ].map((stat, index) => (
+          <PageMotionItem key={stat.label} delay={index * 0.04}>
+            <StatCard {...stat} />
+          </PageMotionItem>
+        ))}
+      </PageMotionSection>
 
-      <section className="flex flex-col gap-3">
+      <PageMotionSection className="flex flex-col gap-3">
         <div className="flex items-end justify-between">
           <h2 className="text-base font-semibold tracking-tight">
             Recently updated
           </h2>
         </div>
         <ProjectsTable projects={recent} categoryNameById={categoryNameById} />
-      </section>
+      </PageMotionSection>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="flex flex-col gap-3">
+      <PageMotionItem className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <PageMotionSection className="flex flex-col gap-3">
           <div>
             <h2 className="text-base font-semibold tracking-tight">
               Open tasks
@@ -100,9 +111,9 @@ export default async function DashboardPage({
             variant="open"
             emptyMessage="No open tasks. Everything's done."
           />
-        </section>
+        </PageMotionSection>
 
-        <section className="flex flex-col gap-3">
+        <PageMotionSection className="flex flex-col gap-3">
           <div>
             <h2 className="text-base font-semibold tracking-tight">
               Recently completed
@@ -116,8 +127,8 @@ export default async function DashboardPage({
             variant="completed"
             emptyMessage="Nothing completed yet."
           />
-        </section>
-      </div>
-    </div>
+        </PageMotionSection>
+      </PageMotionItem>
+    </PageMotion>
   );
 }

@@ -2,6 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
+import {
+  PageMotion,
+  PageMotionItem,
+  PageMotionSection,
+} from "@/components/layout/page-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditProjectDialog } from "@/components/projects/edit-project-dialog";
@@ -65,8 +70,8 @@ export default async function ProjectDetailPage({
     : null;
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6">
-      <div className="flex flex-col gap-3">
+    <PageMotion className="mx-auto flex max-w-7xl flex-col gap-6">
+      <PageMotionItem className="flex flex-col gap-3">
         <Button asChild variant="ghost" size="sm" className="w-fit">
           <Link href="/projects">
             <ChevronLeft />
@@ -105,10 +110,10 @@ export default async function ProjectDetailPage({
           status={project.status}
           canEdit={canManage}
         />
-      </div>
+      </PageMotionItem>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-2">
+      <PageMotionItem className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <PageMotionSection className="flex flex-col gap-6 lg:col-span-2">
           <TasksCard
             projectId={project.id}
             tree={tree}
@@ -117,9 +122,9 @@ export default async function ProjectDetailPage({
             canManage={canManage}
             currentUserId={me.id}
           />
-        </div>
+        </PageMotionSection>
 
-        <div className="flex flex-col gap-6">
+        <PageMotionItem className="flex flex-col gap-6">
           <MembersCard
             projectId={project.id}
             members={members}
@@ -140,8 +145,8 @@ export default async function ProjectDetailPage({
             documents={documents}
             canManage={canManage}
           />
-        </div>
-      </div>
-    </div>
+        </PageMotionItem>
+      </PageMotionItem>
+    </PageMotion>
   );
 }

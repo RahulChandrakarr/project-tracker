@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { PageMotion, PageMotionItem } from "@/components/layout/page-motion";
 import { CategoryFilter } from "@/components/projects/category-filter";
 import { ProjectsTable } from "@/components/projects/projects-table";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
@@ -22,8 +23,8 @@ export default async function ProjectsPage({
   const filtered = projects.filter((p) => matchesCategory(p, category));
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <PageMotion className="mx-auto flex max-w-7xl flex-col gap-6">
+      <PageMotionItem className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
           <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
@@ -38,9 +39,11 @@ export default async function ProjectsPage({
             <NewProjectDialog categories={categories} />
           </Suspense>
         </div>
-      </div>
+      </PageMotionItem>
 
-      <ProjectsTable projects={filtered} categoryNameById={categoryNameById} />
-    </div>
+      <PageMotionItem>
+        <ProjectsTable projects={filtered} categoryNameById={categoryNameById} />
+      </PageMotionItem>
+    </PageMotion>
   );
 }
