@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ProfileFormState = {
   ok: boolean;
@@ -29,6 +30,29 @@ const DetailsInput = z.object({
   bio: optionalText(2000),
 });
 
+const PasswordInput = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(72),
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+function flattenErrors(issues: z.ZodIssue[]): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of issues) {
+    const key = issue.path[0]?.toString() ?? "_";
+    if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+  }
+  return fieldErrors;
+}
+
 /** Anyone can edit their own profile; app admins can edit anyone's. */
 async function canEditProfile(userId: string): Promise<boolean> {
   const me = await getCurrentUser();
@@ -41,12 +65,11 @@ export async function updateProfileDetails(
 ): Promise<ProfileFormState> {
   const parsed = DetailsInput.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const key = issue.path[0]?.toString() ?? "_";
-      fieldErrors[key] = issue.message;
-    }
-    return { ok: false, message: "Check the fields below.", fieldErrors };
+    return {
+      ok: false,
+      message: "Check the fields below.",
+      fieldErrors: flattenErrors(parsed.error.issues),
+    };
   }
 
   if (!(await canEditProfile(parsed.data.userId))) {
@@ -73,6 +96,49 @@ export async function updateProfileDetails(
   revalidatePath(`/members/${parsed.data.userId}`);
   revalidatePath("/members");
   return { ok: true, message: "Profile updated." };
+}
+
+export async function updateMyPassword(
+  _prev: ProfileFormState,
+  formData: FormData,
+): Promise<ProfileFormState> {
+  const parsed = PasswordInput.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: "Check the fields below.",
+      fieldErrors: flattenErrors(parsed.error.issues),
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email) {
+    return { ok: false, message: "Sign in again before changing password." };
+  }
+
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.currentPassword,
+  });
+  if (authError) {
+    return {
+      ok: false,
+      fieldErrors: { currentPassword: "Current password is incorrect" },
+      message: "Check the fields below.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/members/${user.id}`);
+  return { ok: true, message: "Password changed." };
 }
 
 export async function updateAvatar(

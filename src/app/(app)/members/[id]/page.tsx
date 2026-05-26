@@ -68,7 +68,11 @@ export default async function MemberDetailPage({
       </PageMotionItem>
 
       <PageMotionItem>
-        <MemberProfileCard profile={profile} canEdit={canEdit} />
+        <MemberProfileCard
+          profile={profile}
+          canEdit={canEdit}
+          canChangePassword={isSelf}
+        />
       </PageMotionItem>
 
       <PageMotionItem>

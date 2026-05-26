@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useActionState } from "react";
-import { Camera, Mail, MapPin, Phone, Pencil } from "lucide-react";
+import { Camera, KeyRound, Mail, MapPin, Phone, Pencil } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  updateMyPassword,
   updateProfileDetails,
   type ProfileFormState,
 } from "@/lib/profile/actions";
@@ -33,11 +34,14 @@ const INITIAL: ProfileFormState = { ok: false };
 export function MemberProfileCard({
   profile,
   canEdit,
+  canChangePassword = false,
 }: {
   profile: MemberProfile;
   canEdit: boolean;
+  canChangePassword?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
+  const [passwordOpen, setPasswordOpen] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const [detailsState, detailsAction, detailsPending] = useActionState(
@@ -50,6 +54,14 @@ export function MemberProfileCard({
   );
 
   const [cropSrc, setCropSrc] = React.useState<string | null>(null);
+  const [passwordState, passwordAction, passwordPending] = useActionState(
+    async (prev: ProfileFormState, formData: FormData) => {
+      const result = await updateMyPassword(prev, formData);
+      if (result.ok) setPasswordOpen(false);
+      return result;
+    },
+    INITIAL,
+  );
 
   const initials = (profile.fullName ?? profile.email ?? "?")
     .slice(0, 2)
@@ -121,15 +133,29 @@ export function MemberProfileCard({
                   </p>
                 ) : null}
               </div>
-              {canEdit ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setOpen(true)}
-                >
-                  <Pencil />
-                  Edit
-                </Button>
+              {canEdit || canChangePassword ? (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {canChangePassword ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPasswordOpen(true)}
+                    >
+                      <KeyRound />
+                      Password
+                    </Button>
+                  ) : null}
+                  {canEdit ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setOpen(true)}
+                    >
+                      <Pencil />
+                      Edit
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
 
@@ -256,6 +282,92 @@ export function MemberProfileCard({
           </form>
         </DialogContent>
       </Dialog>
+
+      {canChangePassword ? (
+        <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change password</DialogTitle>
+              <DialogDescription>
+                Enter your current password and choose a new one.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form action={passwordAction} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="currentPassword">Current password</Label>
+                <Input
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                />
+                {passwordState.fieldErrors?.currentPassword ? (
+                  <p className="text-xs text-[var(--color-muted-foreground)]">
+                    {passwordState.fieldErrors.currentPassword}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password">New password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  maxLength={72}
+                />
+                {passwordState.fieldErrors?.password ? (
+                  <p className="text-xs text-[var(--color-muted-foreground)]">
+                    {passwordState.fieldErrors.password}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="confirmPassword">Confirm new password</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  maxLength={72}
+                />
+                {passwordState.fieldErrors?.confirmPassword ? (
+                  <p className="text-xs text-[var(--color-muted-foreground)]">
+                    {passwordState.fieldErrors.confirmPassword}
+                  </p>
+                ) : null}
+              </div>
+
+              {passwordState.message ? (
+                <p className="text-sm text-[var(--color-muted-foreground)]">
+                  {passwordState.message}
+                </p>
+              ) : null}
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPasswordOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={passwordPending}>
+                  {passwordPending ? "Saving..." : "Change password"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {canEdit ? (
         <AvatarCropDialog
