@@ -19,6 +19,11 @@ type State = {
   currentIndex: number;
   viewMode: ViewMode;
   fullscreen: boolean;
+  /**
+   * When a page is filled and writing flows onto another page, the new page's
+   * editor reads this on mount to claim the caret so typing continues there.
+   */
+  pendingFocusPageId: string | null;
 };
 
 type Actions = {
@@ -31,9 +36,13 @@ type Actions = {
   setTitle: (title: string) => void;
   setPages: (pages: PageState[]) => void;
   addPage: (page: PageState) => void;
+  /** Append a page without moving the reader to it (used by auto-pagination). */
+  appendPage: (page: PageState) => void;
   removePage: (id: string) => void;
   updatePage: (id: string, patch: Partial<PageState>) => void;
   reorder: (orderedIds: string[]) => void;
+  requestFocus: (pageId: string) => void;
+  clearFocus: () => void;
 };
 
 export type NotebookState = State & Actions;
@@ -43,9 +52,10 @@ const clamp = (n: number, lo: number, hi: number) =>
 
 export type NotebookStore = ReturnType<typeof createNotebookStore>;
 
-export function createNotebookStore(init: State) {
+export function createNotebookStore(init: Omit<State, "pendingFocusPageId">) {
   return createStore<NotebookState>((set) => ({
     ...init,
+    pendingFocusPageId: null,
     goTo: (index) =>
       set((s) => ({ currentIndex: clamp(index, 0, s.pages.length - 1) })),
     next: () =>
@@ -63,6 +73,7 @@ export function createNotebookStore(init: State) {
     setPages: (pages) => set({ pages }),
     addPage: (page) =>
       set((s) => ({ pages: [...s.pages, page], currentIndex: s.pages.length })),
+    appendPage: (page) => set((s) => ({ pages: [...s.pages, page] })),
     removePage: (id) =>
       set((s) => {
         const pages = s.pages.filter((p) => p.id !== id);
@@ -83,6 +94,8 @@ export function createNotebookStore(init: State) {
           .filter((p): p is PageState => Boolean(p));
         return { pages };
       }),
+    requestFocus: (pageId) => set({ pendingFocusPageId: pageId }),
+    clearFocus: () => set({ pendingFocusPageId: null }),
   }));
 }
 

@@ -6,6 +6,7 @@ import type { JSONContent } from "@tiptap/core";
 import { Brush, PenLine } from "lucide-react";
 
 import {
+  addPage,
   updatePageContent,
   updatePageDrawing,
   updatePageStyle,
@@ -19,7 +20,12 @@ import { asDrawing, type Drawing, type DrawTool, type Stroke } from "./drawing";
 import { FormatToolbar, type SaveStatus } from "./format-toolbar";
 import { notebookExtensions } from "./notebook-extensions";
 import { PageSurface } from "./page-surface";
-import { useNotebookStore, type PageState } from "./notebook-store";
+import {
+  pageFromRow,
+  useNotebook,
+  useNotebookStore,
+  type PageState,
+} from "./notebook-store";
 
 type Mode = "write" | "draw";
 
@@ -64,6 +70,11 @@ export function PageWorkspace({
   const latestContent = React.useRef<Json>(page.content);
   const contentDirty = React.useRef(false);
 
+  // ----- auto-pagination (overflow flows onto the next page) -----
+  const balancing = React.useRef(false);
+  const paginateRaf = React.useRef<number | null>(null);
+  const paginateRef = React.useRef<() => void>(() => {});
+
   const editor = useEditor({
     extensions: notebookExtensions(),
     content: page.content as JSONContent,
@@ -87,8 +98,123 @@ export function PageWorkspace({
           setStatus("idle");
         }
       }, 700);
+      // Re-check overflow once the new content has laid out.
+      if (paginateRaf.current) cancelAnimationFrame(paginateRaf.current);
+      paginateRaf.current = requestAnimationFrame(() => paginateRef.current());
     },
   });
+
+  /**
+   * If the page is overfull, move the trailing block(s) that don't fit onto the
+   * next page (opening one when this is the last page). Splitting at top-level
+   * block boundaries keeps paragraphs and lists whole. When the caret sits in
+   * the moved text, follow it to the next page so writing continues seamlessly;
+   * otherwise the reflow is silent and the caret stays put.
+   */
+  const paginate = React.useCallback(async () => {
+    if (!editor || editor.isDestroyed || balancing.current) return;
+
+    const pm = editor.view.dom as HTMLElement;
+    const container = pm.closest(".nb-page-scroll") as HTMLElement | null;
+    if (!container || container.clientHeight === 0) return;
+
+    const padBottom =
+      parseFloat(getComputedStyle(container).paddingBottom) || 0;
+    const usableBottom = container.clientHeight - padBottom;
+
+    const blocks = Array.from(pm.children) as HTMLElement[];
+    let cut = -1;
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (b.offsetTop + b.offsetHeight > usableBottom + 2) {
+        cut = i;
+        break;
+      }
+    }
+    // Nothing overflows, or a single block is taller than the whole page (can't
+    // be split at block level) — leave it scrolling rather than empty the page.
+    if (cut <= 0) return;
+
+    const json = editor.getJSON();
+    const content = Array.isArray(json.content) ? json.content : [];
+    if (cut >= content.length) return;
+    const move = content.slice(cut);
+    if (move.length === 0) return;
+
+    // Document position where the moved blocks begin, and whether the caret is
+    // inside that range.
+    const doc = editor.state.doc;
+    let cutPos = 0;
+    for (let i = 0; i < cut && i < doc.childCount; i++) {
+      cutPos += doc.child(i).nodeSize;
+    }
+    const follow = editor.state.selection.from >= cutPos;
+
+    balancing.current = true;
+    try {
+      const state = store.getState();
+      const idx = state.pages.findIndex((p) => p.id === page.id);
+      if (idx === -1) return;
+      const moveDoc = { type: "doc", content: move } as unknown as Json;
+
+      // Trim the tail off this page. A delete keeps the caret mapped, so a
+      // silent reflow never yanks the reader to the top.
+      editor.view.dispatch(
+        editor.state.tr.delete(cutPos, editor.state.doc.content.size),
+      );
+
+      if (idx === state.pages.length - 1) {
+        // Writing at the end of the book: open a fresh page for the overflow.
+        const row = await addPage(state.notebookId);
+        store.getState().appendPage({ ...pageFromRow(row), content: moveDoc });
+        await updatePageContent(row.id, moveDoc);
+        if (follow) {
+          store.getState().goTo(idx + 1);
+          store.getState().requestFocus(row.id);
+        }
+      } else {
+        // Editing mid-book: push the overflow onto the front of the next page.
+        const next = state.pages[idx + 1];
+        const nextContent =
+          (next.content as { content?: unknown[] } | null)?.content ?? [];
+        const merged = {
+          type: "doc",
+          content: [...move, ...nextContent],
+        } as unknown as Json;
+        store.getState().updatePage(next.id, { content: merged });
+        await updatePageContent(next.id, merged);
+        if (follow) {
+          store.getState().goTo(idx + 1);
+          store.getState().requestFocus(next.id);
+        }
+      }
+    } finally {
+      balancing.current = false;
+    }
+  }, [editor, page.id, store]);
+
+  React.useEffect(() => {
+    paginateRef.current = paginate;
+  }, [paginate]);
+
+  // Resolve any pre-existing overflow once the editor is ready (also lets a
+  // reflow cascade down the book as pages mount).
+  React.useEffect(() => {
+    if (!editor) return;
+    const id = requestAnimationFrame(() => paginateRef.current());
+    return () => cancelAnimationFrame(id);
+  }, [editor]);
+
+  // Claim the caret when writing has just flowed onto this page.
+  const pendingFocusPageId = useNotebook((s) => s.pendingFocusPageId);
+  React.useEffect(() => {
+    if (!editor || pendingFocusPageId !== page.id) return;
+    const id = requestAnimationFrame(() => {
+      editor.commands.focus("end");
+      store.getState().clearFocus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [editor, pendingFocusPageId, page.id, store]);
 
   React.useEffect(() => {
     editor?.setEditable(mode === "write");
@@ -151,6 +277,7 @@ export function PageWorkspace({
       if (textTimer.current) clearTimeout(textTimer.current);
       if (drawTimer.current) clearTimeout(drawTimer.current);
       if (titleTimer.current) clearTimeout(titleTimer.current);
+      if (paginateRaf.current) cancelAnimationFrame(paginateRaf.current);
       if (contentDirty.current) {
         void updatePageContent(page.id, latestContent.current);
         store.getState().updatePage(page.id, { content: latestContent.current });

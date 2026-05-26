@@ -74,7 +74,7 @@ export function PageSurface({
       ) : null}
 
       <div
-        className="relative flex-1 overflow-y-auto px-9 py-10 sm:px-12"
+        className="nb-page-scroll relative flex-1 overflow-y-auto px-9 py-10 sm:px-12"
         style={contentStyle}
       >
         {children}
