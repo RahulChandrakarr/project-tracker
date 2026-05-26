@@ -11,6 +11,9 @@ export { pageFromRow };
 
 export type ViewMode = "single" | "double";
 
+/** Projects the signed-in user can save notebook pages into (for export). */
+export type ExportProject = { id: string; name: string };
+
 type State = {
   notebookId: string;
   title: string;
@@ -19,6 +22,8 @@ type State = {
   currentIndex: number;
   viewMode: ViewMode;
   fullscreen: boolean;
+  /** Targets for "Save to project" — static, loaded once on the server. */
+  projects: ExportProject[];
   /**
    * When a page is filled and writing flows onto another page, the new page's
    * editor reads this on mount to claim the caret so typing continues there.

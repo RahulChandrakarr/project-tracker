@@ -13,6 +13,7 @@ import {
   createNotebookStore,
   NotebookStoreProvider,
   useNotebook,
+  type ExportProject,
   type PageState,
 } from "./notebook-store";
 
@@ -27,11 +28,13 @@ export function NotebookApp({
   title,
   theme,
   pages,
+  projects,
 }: {
   notebookId: string;
   title: string;
   theme: NotebookTheme;
   pages: PageState[];
+  projects: ExportProject[];
 }) {
   const [store] = React.useState(() =>
     createNotebookStore({
@@ -39,6 +42,7 @@ export function NotebookApp({
       title,
       theme,
       pages,
+      projects,
       currentIndex: 0,
       viewMode: "single",
       fullscreen: false,

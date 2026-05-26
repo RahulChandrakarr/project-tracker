@@ -23,6 +23,7 @@ import {
   type PaperStyle,
 } from "@/types/notebook";
 
+import { NotebookExport } from "./notebook-export";
 import { useNotebook, useNotebookStore } from "./notebook-store";
 
 export function NotebookToolbar() {
@@ -153,6 +154,8 @@ export function NotebookToolbar() {
             <SquareDashed className="size-4" />
           </button>
         </div>
+
+        <NotebookExport />
 
         <button
           type="button"
