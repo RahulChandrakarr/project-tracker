@@ -12,7 +12,15 @@ const AddNoteInput = z.object({
     .uuid()
     .optional()
     .or(z.literal("").transform(() => undefined)),
-  body: z.string().trim().min(1, "Note is empty").max(4000),
+  title: z.string().trim().optional(),
+  body: z.string().trim().min(1, "Note is empty"),
+});
+
+const UpdateNoteInput = z.object({
+  noteId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  title: z.string().trim().optional(),
+  body: z.string().trim().min(1, "Note is empty"),
 });
 
 const DeleteNoteInput = z.object({
@@ -50,9 +58,46 @@ export async function addNote(
   const { error } = await supabase.from("notes").insert({
     project_id: parsed.data.projectId,
     task_id: parsed.data.taskId ?? null,
+    title: parsed.data.title || null,
     body: parsed.data.body,
     created_by: user.id,
   });
+
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/projects/${parsed.data.projectId}`);
+  return { ok: true };
+}
+
+export async function updateNote(
+  _prev: NoteFormState,
+  formData: FormData,
+): Promise<NoteFormState> {
+  const parsed = UpdateNoteInput.safeParse(Object.fromEntries(formData));
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0]?.toString() ?? "_";
+      fieldErrors[key] = issue.message;
+    }
+    return { ok: false, message: parsed.error.issues[0]?.message, fieldErrors };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "You must be signed in." };
+
+  // RLS limits this to the note's author, project admins, and app admins.
+  const { error } = await supabase
+    .from("notes")
+    .update({
+      title: parsed.data.title || null,
+      body: parsed.data.body,
+    })
+    .eq("id", parsed.data.noteId);
 
   if (error) return { ok: false, message: error.message };
 

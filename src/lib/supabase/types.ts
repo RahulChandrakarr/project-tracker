@@ -204,6 +204,7 @@ export type Database = {
           id: string;
           project_id: string;
           task_id: string | null;
+          title: string | null;
           body: string;
           created_by: string | null;
           created_at: string;
@@ -213,12 +214,14 @@ export type Database = {
           id?: string;
           project_id: string;
           task_id?: string | null;
+          title?: string | null;
           body: string;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
+          title?: string | null;
           body?: string;
           updated_at?: string;
         };
