@@ -11,7 +11,7 @@ import {
 import { StatCard } from "@/components/projects/stat-card";
 import type { MemberReport as MemberReportData } from "@/lib/profile/queries";
 import { TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from "@/types/project";
-import { formatDate } from "@/lib/format";
+import { formatDateTime, formatDueDateTime } from "@/lib/format";
 
 import { ProductivityChart } from "./productivity-chart";
 
@@ -108,9 +108,9 @@ export function MemberReport({ report }: { report: MemberReportData }) {
                         "Unknown project"
                       )}
                       {t.completedAt
-                        ? ` · Done ${formatDate(t.completedAt)}`
+                        ? ` · Done ${formatDateTime(t.completedAt)}`
                         : t.dueDate
-                          ? ` · Due ${formatDate(t.dueDate)}`
+                          ? ` · Due ${formatDueDateTime(t.dueDate)}`
                           : ""}
                     </div>
                   </div>

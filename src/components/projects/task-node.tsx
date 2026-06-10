@@ -15,6 +15,7 @@ import {
   GripVertical,
   ListPlus,
   MessageSquarePlus,
+  MoreHorizontal,
   Paperclip,
   Pencil,
   SignalHigh,
@@ -62,7 +63,11 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from "@/types/project";
-import { formatDate } from "@/lib/format";
+import {
+  formatDateTime,
+  formatDueDateTime,
+  toDateTimeLocalValue,
+} from "@/lib/format";
 
 import { NotesList } from "./notes-list";
 
@@ -127,6 +132,25 @@ export function TaskNode({
   const ownNotes = notesByTaskId.get(node.id) ?? [];
   const ownAttachments = attachmentsByTaskId.get(node.id) ?? [];
   const isTopLevel = indentLevel === 0;
+  const isDone = node.status === "done";
+
+  const assigneeLabel = node.assignee?.fullName
+    ? node.assignee.fullName
+    : node.assignee
+      ? node.assignee.id.slice(0, 8)
+      : "Unassigned";
+
+  // Small "· N things" suffixes, only shown when the count is non-zero, so the
+  // meta line stays short when there's nothing to count.
+  const counts = [
+    [node.children.length, "subtask"],
+    [ownNotes.length, "note"],
+    [ownAttachments.length, "file"],
+  ] as const;
+  const countSuffix = counts
+    .filter(([n]) => n > 0)
+    .map(([n, word]) => `${n} ${word}${n === 1 ? "" : "s"}`)
+    .join(" · ");
 
   // The toolbar add actions live in the row, so triggering one also expands the
   // node to reveal the form it opens. Only one form is ever open at a time.
@@ -207,23 +231,23 @@ export function TaskNode({
           >
             {node.title}
           </div>
-          <div className="text-xs text-[var(--color-muted-foreground)]">
-            Due {formatDate(node.due_date)}
-            {node.assignee?.fullName
-              ? ` · ${node.assignee.fullName}`
-              : node.assignee
-                ? ` · ${node.assignee.id.slice(0, 8)}`
-                : " · Unassigned"}
+
+          {/* Primary meta: deadline, who's on it, how important. */}
+          <div className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+            Due {formatDueDateTime(node.due_date)}
+            {` · ${assigneeLabel}`}
             {node.priority ? ` · ${TASK_PRIORITY_LABEL[node.priority]}` : null}
-            {node.children.length > 0
-              ? ` · ${node.children.length} subtask${node.children.length === 1 ? "" : "s"}`
-              : null}
-            {ownNotes.length > 0
-              ? ` · ${ownNotes.length} note${ownNotes.length === 1 ? "" : "s"}`
-              : null}
-            {ownAttachments.length > 0
-              ? ` · ${ownAttachments.length} file${ownAttachments.length === 1 ? "" : "s"}`
-              : null}
+          </div>
+
+          {/* Secondary meta: timeline + counts, lighter so it recedes. */}
+          <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]/80">
+            Assigned {formatDateTime(node.created_at)}
+            {isDone && node.completed_at ? (
+              <span className="text-emerald-600">
+                {` · Done ${formatDateTime(node.completed_at)}`}
+              </span>
+            ) : null}
+            {countSuffix ? ` · ${countSuffix}` : null}
           </div>
         </div>
 
@@ -253,70 +277,16 @@ export function TaskNode({
             status={node.status}
           />
 
-          <div className="flex items-center">
-            {canManage ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => open("edit")}
-                aria-label={`Edit ${node.title}`}
-                title="Edit task"
-              >
-                <Pencil />
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => open("attach")}
-              aria-label={`Attach a file to ${node.title}`}
-              title="Attach file"
-            >
-              <Paperclip />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => open("note")}
-              aria-label={`Add note to ${node.title}`}
-              title="Add note"
-            >
-              <MessageSquarePlus />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => open("subtask")}
-              aria-label={`Add subtask to ${node.title}`}
-              title="Add subtask"
-            >
-              <ListPlus />
-            </Button>
-            {canManage ? (
-              <form action={deleteTask}>
-                <input type="hidden" name="taskId" value={node.id} />
-                <input type="hidden" name="projectId" value={node.project_id} />
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  aria-label={`Delete ${node.title}`}
-                  title="Delete task"
-                >
-                  <Trash2 />
-                </Button>
-              </form>
-            ) : null}
-          </div>
+          <RowActionsMenu
+            taskId={node.id}
+            projectId={node.project_id}
+            title={node.title}
+            canManage={canManage}
+            onEdit={() => open("edit")}
+            onAttach={() => open("attach")}
+            onNote={() => open("note")}
+            onSubtask={() => open("subtask")}
+          />
         </div>
       </div>
 
@@ -617,6 +587,103 @@ function AssigneeControl({
 }
 
 /**
+ * The row's secondary actions (edit, attach, note, subtask, delete) collapsed
+ * into one overflow menu so the row stays uncluttered. The quick controls
+ * (status / priority / assignee) stay inline.
+ */
+function RowActionsMenu({
+  taskId,
+  projectId,
+  title,
+  canManage,
+  onEdit,
+  onAttach,
+  onNote,
+  onSubtask,
+}: {
+  taskId: string;
+  projectId: string;
+  title: string;
+  canManage: boolean;
+  onEdit: () => void;
+  onAttach: () => void;
+  onNote: () => void;
+  onSubtask: () => void;
+}) {
+  return (
+    <Popover
+      align="end"
+      triggerLabel={`More actions for ${title}`}
+      triggerClassName="grid size-8 shrink-0 place-items-center rounded-md hover:bg-[var(--color-accent)]"
+      trigger={
+        <MoreHorizontal className="size-4 text-[var(--color-muted-foreground)]" />
+      }
+    >
+      {({ close }) => (
+        <>
+          {canManage ? (
+            <button
+              type="button"
+              className={MENU_ITEM}
+              onClick={() => {
+                close();
+                onEdit();
+              }}
+            >
+              <Pencil className="size-4 shrink-0" />
+              <span className="flex-1">Edit task</span>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={MENU_ITEM}
+            onClick={() => {
+              close();
+              onAttach();
+            }}
+          >
+            <Paperclip className="size-4 shrink-0" />
+            <span className="flex-1">Attach file</span>
+          </button>
+          <button
+            type="button"
+            className={MENU_ITEM}
+            onClick={() => {
+              close();
+              onNote();
+            }}
+          >
+            <MessageSquarePlus className="size-4 shrink-0" />
+            <span className="flex-1">Add note</span>
+          </button>
+          <button
+            type="button"
+            className={MENU_ITEM}
+            onClick={() => {
+              close();
+              onSubtask();
+            }}
+          >
+            <ListPlus className="size-4 shrink-0" />
+            <span className="flex-1">Add subtask</span>
+          </button>
+          {canManage ? (
+            <form action={deleteTask}>
+              <input type="hidden" name="taskId" value={taskId} />
+              <input type="hidden" name="projectId" value={projectId} />
+              <button type="submit" className={`${MENU_ITEM} text-rose-600`}>
+                <Trash2 className="size-4 shrink-0" />
+                <span className="flex-1">Delete task</span>
+              </button>
+            </form>
+          ) : null}
+        </>
+      )}
+    </Popover>
+  );
+}
+
+/**
  * Inline full-edit form for a task's core fields (title, assignee, status,
  * priority, due date). Posts to `updateTask`; closes on success.
  */
@@ -702,9 +769,9 @@ function EditTaskForm({
         </SelectNative>
         <Input
           name="dueDate"
-          type="date"
+          type="datetime-local"
           className="text-xs"
-          defaultValue={node.due_date ?? ""}
+          defaultValue={toDateTimeLocalValue(node.due_date)}
         />
       </div>
 
@@ -784,7 +851,7 @@ function TaskAttachments({
                   <div className="text-xs text-[var(--color-muted-foreground)]">
                     {d.mime_type ?? "file"} ·{" "}
                     {d.size_bytes ? formatBytes(d.size_bytes) : "—"} · Added{" "}
-                    {formatDate(d.created_at)}
+                    {formatDateTime(d.created_at)}
                   </div>
                 </div>
                 <Button
@@ -939,7 +1006,7 @@ function NewSubtaskForm({
             </option>
           ))}
         </SelectNative>
-        <Input name="dueDate" type="date" className="text-xs" />
+        <Input name="dueDate" type="datetime-local" className="text-xs" />
       </div>
 
       {state.message && !state.ok ? (

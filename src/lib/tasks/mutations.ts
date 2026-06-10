@@ -101,6 +101,18 @@ export type TaskFormState = {
   fieldErrors?: Record<string, string>;
 };
 
+/**
+ * A `datetime-local` field posts `YYYY-MM-DDTHH:MM` with no timezone. We pin it
+ * to UTC (append seconds + Z) so the wall-clock time the user picked is stored
+ * and read back unchanged. A bare date or an already-zoned ISO string is left
+ * as-is.
+ */
+function normalizeDueDate(value: string | undefined): string | null {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return `${value}:00Z`;
+  return value;
+}
+
 export async function createTask(
   _prev: TaskFormState,
   formData: FormData,
@@ -144,7 +156,7 @@ export async function createTask(
     assignee_id: parsed.data.assigneeId ?? null,
     status: parsed.data.status,
     priority: parsed.data.priority ?? null,
-    due_date: parsed.data.dueDate ?? null,
+    due_date: normalizeDueDate(parsed.data.dueDate),
     completed_at: parsed.data.status === "done" ? new Date().toISOString() : null,
     position: nextPosition,
     created_by: user.id,
@@ -238,7 +250,7 @@ export async function updateTask(
       assignee_id: parsed.data.assigneeId ?? null,
       status: parsed.data.status,
       priority: parsed.data.priority ?? null,
-      due_date: parsed.data.dueDate ?? null,
+      due_date: normalizeDueDate(parsed.data.dueDate),
       completed_at:
         parsed.data.status === "done" ? new Date().toISOString() : null,
     })

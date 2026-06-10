@@ -264,8 +264,8 @@ export function TasksCard({
               </SelectNative>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="dueDate">Due</Label>
-              <Input id="dueDate" name="dueDate" type="date" />
+              <Label htmlFor="dueDate">Due (date &amp; time)</Label>
+              <Input id="dueDate" name="dueDate" type="datetime-local" />
             </div>
           </div>
 
