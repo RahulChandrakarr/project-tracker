@@ -277,27 +277,26 @@ export function TaskNode({
           className="flex flex-col gap-4 pb-4 pr-2"
           style={{ paddingLeft: `${12 + indentLevel * 24 + 36}px` }}
         >
-          <div className="flex flex-col gap-2">
-            {ownNotes.length > 0 ? (
-              <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-                Notes
-              </div>
-            ) : null}
-            <NotesList
-              projectId={node.project_id}
-              taskId={node.id}
-              notes={ownNotes}
-              currentUserId={currentUserId}
-              canManage={canManage}
-              showForm={showNoteForm}
-              onShowFormChange={setShowNoteForm}
-            />
-            {ownNotes.length === 0 && !showNoteForm ? (
-              <p className="text-xs text-[var(--color-muted-foreground)]">
-                No notes yet. Use the note icon above to add one.
-              </p>
-            ) : null}
-          </div>
+          {/* Notes only surface when there are notes or the note form is open,
+              so opening the subtask form doesn't drag the notes block in too. */}
+          {ownNotes.length > 0 || showNoteForm ? (
+            <div className="flex flex-col gap-2">
+              {ownNotes.length > 0 ? (
+                <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+                  Notes
+                </div>
+              ) : null}
+              <NotesList
+                projectId={node.project_id}
+                taskId={node.id}
+                notes={ownNotes}
+                currentUserId={currentUserId}
+                canManage={canManage}
+                showForm={showNoteForm}
+                onShowFormChange={setShowNoteForm}
+              />
+            </div>
+          ) : null}
 
           {showSubtaskForm ? (
             <NewSubtaskForm
@@ -307,6 +306,14 @@ export function TaskNode({
               canManage={canManage}
               onClose={() => setShowSubtaskForm(false)}
             />
+          ) : null}
+
+          {/* Plain chevron-expand with nothing else open: gentle empty hint. */}
+          {ownNotes.length === 0 && !showNoteForm && !showSubtaskForm ? (
+            <p className="text-xs text-[var(--color-muted-foreground)]">
+              No notes yet. Use the note icon to add one, or the list icon to add
+              a subtask.
+            </p>
           ) : null}
         </div>
       ) : null}
