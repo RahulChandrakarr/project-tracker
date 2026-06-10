@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { StatCard } from "@/components/projects/stat-card";
 import type { MemberReport as MemberReportData } from "@/lib/profile/queries";
-import { TASK_STATUS_LABEL } from "@/types/project";
+import { TASK_EFFORT_LABEL, TASK_STATUS_LABEL } from "@/types/project";
 import { formatDate } from "@/lib/format";
 
 import { ProductivityChart } from "./productivity-chart";
@@ -67,6 +67,8 @@ export function MemberReport({ report }: { report: MemberReportData }) {
 
       <TaskBreakdown report={report} />
 
+      <EffortBreakdown report={report} />
+
       <ProductivityChart series={report.series} />
 
       <Card>
@@ -112,9 +114,16 @@ export function MemberReport({ report }: { report: MemberReportData }) {
                           : ""}
                     </div>
                   </div>
-                  <Badge variant="outline" className="shrink-0">
-                    {TASK_STATUS_LABEL[t.status]}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {t.effort ? (
+                      <Badge variant="secondary">
+                        {TASK_EFFORT_LABEL[t.effort]}
+                      </Badge>
+                    ) : null}
+                    <Badge variant="outline">
+                      {TASK_STATUS_LABEL[t.status]}
+                    </Badge>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -122,6 +131,74 @@ export function MemberReport({ report }: { report: MemberReportData }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function EffortBreakdown({ report }: { report: MemberReportData }) {
+  const { quick, medium, large, unset } = report.effort;
+  const estimated = quick + medium + large;
+  const total = estimated + unset;
+  const pct = (n: number) => (total === 0 ? 0 : (n / total) * 100);
+
+  const segments = [
+    { label: "Quick", value: quick, className: "bg-emerald-500" },
+    { label: "Medium", value: medium, className: "bg-amber-500" },
+    { label: "Large", value: large, className: "bg-rose-500" },
+    {
+      label: "Not set",
+      value: unset,
+      className: "bg-[var(--color-secondary)]",
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <CardTitle>Effort mix</CardTitle>
+            <CardDescription>
+              How assigned work splits by time/effort estimate.
+            </CardDescription>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-semibold tabular-nums">
+              {total === 0 ? 0 : Math.round((estimated / total) * 100)}%
+            </div>
+            <div className="text-xs text-[var(--color-muted-foreground)]">
+              estimated
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex h-3 w-full overflow-hidden rounded-full bg-[var(--color-secondary)]">
+          {total === 0
+            ? null
+            : segments.map((s) =>
+                s.value === 0 ? null : (
+                  <div
+                    key={s.label}
+                    className={s.className}
+                    style={{ width: `${pct(s.value)}%` }}
+                    title={`${s.label}: ${s.value}`}
+                  />
+                ),
+              )}
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+          {segments.map((s) => (
+            <span key={s.label} className="inline-flex items-center gap-1.5">
+              <span className={`size-2.5 rounded-sm ${s.className}`} />
+              <span className="text-[var(--color-muted-foreground)]">
+                {s.label}
+              </span>
+              <span className="font-medium tabular-nums">{s.value}</span>
+            </span>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

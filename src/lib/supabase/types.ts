@@ -31,6 +31,9 @@ export type ProjectMemberRole = "admin" | "member";
 
 export type TaskStatus = "todo" | "in_progress" | "done";
 
+/** Optional time/effort estimate on a task. Null when not set. */
+export type TaskEffort = "quick" | "medium" | "large";
+
 export type DocumentKind = "link" | "file";
 
 export type Database = {
@@ -164,6 +167,7 @@ export type Database = {
           description: string | null;
           assignee_id: string | null;
           status: TaskStatus;
+          effort: TaskEffort | null;
           due_date: string | null;
           completed_at: string | null;
           position: number;
@@ -179,6 +183,7 @@ export type Database = {
           description?: string | null;
           assignee_id?: string | null;
           status?: TaskStatus;
+          effort?: TaskEffort | null;
           due_date?: string | null;
           completed_at?: string | null;
           position?: number;
@@ -192,6 +197,7 @@ export type Database = {
           description?: string | null;
           assignee_id?: string | null;
           status?: TaskStatus;
+          effort?: TaskEffort | null;
           due_date?: string | null;
           completed_at?: string | null;
           position?: number;

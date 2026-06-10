@@ -9,9 +9,13 @@ import {
   Circle,
   CircleCheck,
   CircleDot,
+  Gauge,
   GripVertical,
   ListPlus,
   MessageSquarePlus,
+  SignalHigh,
+  SignalLow,
+  SignalMedium,
   Trash2,
   UserRoundPlus,
   type LucideIcon,
@@ -32,13 +36,21 @@ import {
   createTask,
   deleteTask,
   updateTaskAssignee,
+  updateTaskEffort,
   updateTaskStatus,
   type TaskFormState,
 } from "@/lib/tasks/mutations";
 import type { TaskNode as TaskNodeData } from "@/lib/tasks/queries";
 import type { ProjectMember } from "@/lib/members/queries";
 import type { Note } from "@/lib/notes/queries";
-import { TASK_STATUS_LABEL, type TaskStatus } from "@/types/project";
+import {
+  TASK_EFFORT_HINT,
+  TASK_EFFORT_LABEL,
+  TASK_EFFORT_OPTIONS,
+  TASK_STATUS_LABEL,
+  type TaskEffort,
+  type TaskStatus,
+} from "@/types/project";
 import { formatDate } from "@/lib/format";
 
 import { NotesList } from "./notes-list";
@@ -51,6 +63,12 @@ const STATUS_META = {
   in_progress: { Icon: CircleDot, className: "text-amber-500" },
   done: { Icon: CircleCheck, className: "text-emerald-500" },
 } satisfies Record<TaskStatus, { Icon: LucideIcon; className: string }>;
+
+const EFFORT_META = {
+  quick: { Icon: SignalLow, className: "text-emerald-500" },
+  medium: { Icon: SignalMedium, className: "text-amber-500" },
+  large: { Icon: SignalHigh, className: "text-rose-500" },
+} satisfies Record<TaskEffort, { Icon: LucideIcon; className: string }>;
 
 function initials(name: string | null): string {
   if (!name) return "?";
@@ -175,6 +193,7 @@ export function TaskNode({
               : node.assignee
                 ? ` · ${node.assignee.id.slice(0, 8)}`
                 : " · Unassigned"}
+            {node.effort ? ` · ${TASK_EFFORT_LABEL[node.effort]}` : null}
             {node.children.length > 0
               ? ` · ${node.children.length} subtask${node.children.length === 1 ? "" : "s"}`
               : null}
@@ -195,6 +214,13 @@ export function TaskNode({
               members={members}
             />
           ) : null}
+
+          <EffortControl
+            key={node.effort ?? "none"}
+            taskId={node.id}
+            projectId={node.project_id}
+            effort={node.effort}
+          />
 
           <StatusControl
             key={node.status}
@@ -361,6 +387,82 @@ function StatusControl({
 }
 
 /**
+ * Effort estimate as a signal-strength icon (or a neutral gauge when unset),
+ * opening a popover to pick Quick / Medium / Large or clear it. Same
+ * submit-button-per-option pattern as StatusControl; "" clears the effort.
+ * Any project member can set it, matching the task-update RLS policy.
+ */
+function EffortControl({
+  taskId,
+  projectId,
+  effort,
+}: {
+  taskId: string;
+  projectId: string;
+  effort: TaskEffort | null;
+}) {
+  const current = effort ? EFFORT_META[effort] : null;
+
+  return (
+    <Popover
+      align="end"
+      triggerLabel={effort ? `Effort: ${TASK_EFFORT_LABEL[effort]}` : "Effort: not set"}
+      triggerClassName="grid size-8 shrink-0 place-items-center rounded-md hover:bg-[var(--color-accent)]"
+      trigger={
+        current ? (
+          <current.Icon className={`size-4 ${current.className}`} />
+        ) : (
+          <Gauge className="size-4 text-[var(--color-muted-foreground)]" />
+        )
+      }
+    >
+      <form action={updateTaskEffort} className="contents">
+        <input type="hidden" name="taskId" value={taskId} />
+        <input type="hidden" name="projectId" value={projectId} />
+        <button
+          type="submit"
+          name="effort"
+          value=""
+          role="menuitemradio"
+          aria-checked={!effort}
+          className={MENU_ITEM}
+        >
+          <Gauge className="size-4 shrink-0 text-[var(--color-muted-foreground)]" />
+          <span className="flex-1 text-[var(--color-muted-foreground)]">
+            Not set
+          </span>
+          {!effort ? <Check className="size-4 shrink-0" /> : null}
+        </button>
+        {TASK_EFFORT_OPTIONS.map((value) => {
+          const { Icon, className } = EFFORT_META[value];
+          const selected = value === effort;
+          return (
+            <button
+              key={value}
+              type="submit"
+              name="effort"
+              value={value}
+              role="menuitemradio"
+              aria-checked={selected}
+              className={MENU_ITEM}
+            >
+              <Icon className={`size-4 shrink-0 ${className}`} />
+              <span className="flex-1">
+                {TASK_EFFORT_LABEL[value]}
+                <span className="ml-1 text-xs text-[var(--color-muted-foreground)]">
+                  {TASK_EFFORT_HINT[value]}
+                </span>
+              </span>
+              {selected ? <Check className="size-4 shrink-0" /> : null}
+            </button>
+          );
+        })}
+      </form>
+    </Popover>
+  );
+}
+
+/**
  * Assignee as an avatar (initials) or an add-person icon when unassigned,
  * opening a popover of members. Same submit-button-per-option approach as
  * StatusControl; "" posts as Unassigned.
@@ -489,7 +591,7 @@ function NewSubtaskForm({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {canManage ? (
           <SelectNative name="assigneeId" defaultValue="" className="text-xs">
             <option value="">Unassigned</option>
@@ -504,6 +606,14 @@ function NewSubtaskForm({
           <option value="todo">To do</option>
           <option value="in_progress">In progress</option>
           <option value="done">Done</option>
+        </SelectNative>
+        <SelectNative name="effort" defaultValue="" className="text-xs">
+          <option value="">Effort: not set</option>
+          {TASK_EFFORT_OPTIONS.map((value) => (
+            <option key={value} value={value}>
+              {TASK_EFFORT_LABEL[value]} · {TASK_EFFORT_HINT[value]}
+            </option>
+          ))}
         </SelectNative>
         <Input name="dueDate" type="date" className="text-xs" />
       </div>

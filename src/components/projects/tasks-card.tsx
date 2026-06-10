@@ -38,6 +38,11 @@ import {
 import type { TaskNode as TaskNodeData } from "@/lib/tasks/queries";
 import type { ProjectMember } from "@/lib/members/queries";
 import type { Note } from "@/lib/notes/queries";
+import {
+  TASK_EFFORT_HINT,
+  TASK_EFFORT_LABEL,
+  TASK_EFFORT_OPTIONS,
+} from "@/types/project";
 
 import { TaskNode } from "./task-node";
 
@@ -226,7 +231,7 @@ export function TasksCard({
             ) : null}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {canManage ? (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="assigneeId">Assignee</Label>
@@ -246,6 +251,17 @@ export function TasksCard({
                 <option value="todo">To do</option>
                 <option value="in_progress">In progress</option>
                 <option value="done">Done</option>
+              </SelectNative>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="effort">Effort</Label>
+              <SelectNative id="effort" name="effort" defaultValue="">
+                <option value="">Not set</option>
+                {TASK_EFFORT_OPTIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {TASK_EFFORT_LABEL[value]} · {TASK_EFFORT_HINT[value]}
+                  </option>
+                ))}
               </SelectNative>
             </div>
             <div className="flex flex-col gap-1.5">

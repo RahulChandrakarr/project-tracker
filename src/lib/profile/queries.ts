@@ -2,7 +2,7 @@ import "server-only";
 
 import { getCurrentUser, type CurrentUser } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { AppRole, TaskStatus } from "@/lib/supabase/types";
+import type { AppRole, TaskEffort, TaskStatus } from "@/lib/supabase/types";
 import type { DashboardTask, TaskRow } from "@/lib/tasks/queries";
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -38,10 +38,20 @@ export type MemberReportTask = {
   id: string;
   title: string;
   status: TaskStatus;
+  effort: TaskEffort | null;
   dueDate: string | null;
   completedAt: string | null;
   projectId: string;
   projectName: string | null;
+};
+
+/** How a member's assigned tasks split by effort estimate. */
+export type EffortBreakdown = {
+  quick: number;
+  medium: number;
+  large: number;
+  /** Tasks with no effort set. */
+  unset: number;
 };
 
 export type MemberReport = {
@@ -61,6 +71,8 @@ export type MemberReport = {
   avgCompletionDays: number | null;
   /** % of completed tasks finished on/before their due date; null if none had a due date. */
   onTimeRate: number | null;
+  /** Assigned tasks grouped by their optional effort estimate. */
+  effort: EffortBreakdown;
   series: ProductivitySeries;
   recentTasks: MemberReportTask[];
 };
@@ -126,7 +138,9 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
   const [tasksResult, membershipResult] = await Promise.all([
     admin
       .from("tasks")
-      .select("id, title, status, due_date, completed_at, created_at, project_id")
+      .select(
+        "id, title, status, effort, due_date, completed_at, created_at, project_id",
+      )
       .eq("assignee_id", userId),
     admin.from("project_members").select("project_id").eq("user_id", userId),
   ]);
@@ -163,10 +177,17 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
   let completionDaysCount = 0;
   let onTimeCount = 0;
   let dueDatedCompleted = 0;
+  const effort: EffortBreakdown = { quick: 0, medium: 0, large: 0, unset: 0 };
   for (const t of rows) {
     if (t.status === "done") completed += 1;
     else if (t.status === "in_progress") inProgress += 1;
     else todo += 1;
+
+    if (t.effort === "quick" || t.effort === "medium" || t.effort === "large") {
+      effort[t.effort] += 1;
+    } else {
+      effort.unset += 1;
+    }
 
     if (
       t.status !== "done" &&
@@ -227,6 +248,7 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
       id: t.id,
       title: t.title,
       status: t.status,
+      effort: t.effort,
       dueDate: t.due_date,
       completedAt: t.completed_at,
       projectId: t.project_id,
@@ -246,6 +268,7 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
     completedThisMonth,
     avgCompletionDays,
     onTimeRate,
+    effort,
     series,
     recentTasks,
   };

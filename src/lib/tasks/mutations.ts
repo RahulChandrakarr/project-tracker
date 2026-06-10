@@ -20,6 +20,10 @@ const CreateTaskInput = z.object({
     .optional()
     .or(z.literal("").transform(() => undefined)),
   status: z.enum(["todo", "in_progress", "done"]).default("todo"),
+  effort: z
+    .enum(["quick", "medium", "large"])
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   dueDate: z
     .string()
     .trim()
@@ -40,6 +44,15 @@ const UpdateAssigneeInput = z.object({
   assigneeId: z
     .string()
     .uuid()
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+});
+
+const UpdateEffortInput = z.object({
+  taskId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  effort: z
+    .enum(["quick", "medium", "large"])
     .optional()
     .or(z.literal("").transform(() => undefined)),
 });
@@ -108,6 +121,7 @@ export async function createTask(
     description: parsed.data.description ?? null,
     assignee_id: parsed.data.assigneeId ?? null,
     status: parsed.data.status,
+    effort: parsed.data.effort ?? null,
     due_date: parsed.data.dueDate ?? null,
     completed_at: parsed.data.status === "done" ? new Date().toISOString() : null,
     position: nextPosition,
@@ -153,6 +167,19 @@ export async function updateTaskAssignee(formData: FormData): Promise<void> {
     .eq("id", parsed.taskId);
   if (error) throw new Error(error.message);
   revalidatePath(`/projects/${parsed.projectId}`);
+}
+
+export async function updateTaskEffort(formData: FormData): Promise<void> {
+  const parsed = UpdateEffortInput.parse(Object.fromEntries(formData));
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("tasks")
+    .update({ effort: parsed.effort ?? null })
+    .eq("id", parsed.taskId);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/projects/${parsed.projectId}`);
+  // Effort feeds the per-member profile breakdown.
+  revalidatePath("/members/[id]", "page");
 }
 
 export async function updateTaskNotes(formData: FormData): Promise<void> {
