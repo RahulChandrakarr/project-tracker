@@ -34,8 +34,10 @@ export function Popover({
   const [open, setOpen] = React.useState(false);
   const [coords, setCoords] = React.useState<{
     top: number;
+    bottom: number;
     left: number;
     right: number;
+    placement: "below" | "above";
   } | null>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -44,14 +46,31 @@ export function Popover({
     const el = triggerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    // Flip the panel above the trigger when there isn't room below it (e.g. the
+    // last task near the bottom of the screen). Falls back to whichever side has
+    // more space if neither fully fits.
+    const gap = 4;
+    const panelH = panelRef.current?.offsetHeight ?? 0;
+    const spaceBelow = window.innerHeight - r.bottom - gap;
+    const spaceAbove = r.top - gap;
+    const placement =
+      panelH > spaceBelow && spaceAbove > spaceBelow ? "above" : "below";
     setCoords({
-      top: r.bottom + 4,
+      top: r.bottom + gap,
+      bottom: window.innerHeight - r.top + gap,
       left: r.left,
       right: window.innerWidth - r.right,
+      placement,
     });
   }, []);
 
   const close = React.useCallback(() => setOpen(false), []);
+
+  // Re-run placement once the panel has mounted and its height is measurable,
+  // so the flip decision uses the real panel height rather than 0.
+  React.useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
 
   // Keep the panel pinned to the trigger while scrolling/resizing.
   React.useEffect(() => {
@@ -112,7 +131,9 @@ export function Popover({
               role="menu"
               style={{
                 position: "fixed",
-                top: coords.top,
+                ...(coords.placement === "above"
+                  ? { bottom: coords.bottom }
+                  : { top: coords.top }),
                 ...(align === "end"
                   ? { right: coords.right }
                   : { left: coords.left }),
