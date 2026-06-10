@@ -105,12 +105,15 @@ export function TaskNode({
 
   // The note/subtask add actions live in the row toolbar, so triggering one
   // also expands the node to reveal the form it opens. yarr
+  // Only one form is ever open at a time: opening one closes the other.
   const openNoteForm = () => {
     setExpanded(true);
+    setShowSubtaskForm(false);
     setShowNoteForm(true);
   };
   const openSubtaskForm = () => {
     setExpanded(true);
+    setShowNoteForm(false);
     setShowSubtaskForm(true);
   };
 
