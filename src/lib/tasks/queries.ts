@@ -15,17 +15,24 @@ export type TaskNode = Task & {
 };
 
 /**
- * Flat list of tasks for a project, joined with assignee profile data.
- * Use this for table-style displays. For tree rendering, pass the result
- * to `buildTaskTree`.
+ * Flat list of a project's tasks the current viewer is assigned to or created,
+ * joined with assignee profile data. Scoped to the signed-in user so the
+ * project board shows only their own work. Use this for table-style displays.
+ * For tree rendering, pass the result to `buildTaskTree`.
  */
 export async function listProjectTasks(projectId: string): Promise<Task[]> {
   const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
 
   const { data: tasks, error } = await supabase
     .from("tasks")
     .select("*")
     .eq("project_id", projectId)
+    .or(`assignee_id.eq.${user.id},created_by.eq.${user.id}`)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
 
@@ -92,16 +99,22 @@ async function attachProjects(
 }
 
 /**
- * Open (not-done) tasks across every project the viewer can see, soonest
- * deadline first (tasks with no deadline sink to the end). RLS scopes this to
- * the viewer's projects, same as `listProjects`.
+ * Open (not-done) tasks assigned to the current viewer, soonest deadline first
+ * (tasks with no deadline sink to the end). Scoped to the signed-in user's own
+ * assignments so the dashboard shows only their work.
  */
 export async function listOpenTasks(limit = 8): Promise<DashboardTask[]> {
   const supabase = await createSupabaseServerClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
   const { data: tasks, error } = await supabase
     .from("tasks")
     .select("*")
+    .eq("assignee_id", user.id)
     .neq("status", "done")
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true })
@@ -112,7 +125,7 @@ export async function listOpenTasks(limit = 8): Promise<DashboardTask[]> {
 }
 
 /**
- * Tasks marked done across every visible project, most recently completed
+ * Tasks assigned to the current viewer and marked done, most recently completed
  * first. `completed_at` is stamped by `updateTaskStatus` when a task goes done.
  */
 export async function listRecentlyCompletedTasks(
@@ -120,9 +133,15 @@ export async function listRecentlyCompletedTasks(
 ): Promise<DashboardTask[]> {
   const supabase = await createSupabaseServerClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
   const { data: tasks, error } = await supabase
     .from("tasks")
     .select("*")
+    .eq("assignee_id", user.id)
     .eq("status", "done")
     .not("completed_at", "is", null)
     .order("completed_at", { ascending: false })
