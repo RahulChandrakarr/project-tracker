@@ -9,14 +9,19 @@ import {
   Circle,
   CircleCheck,
   CircleDot,
+  ExternalLink,
+  FileText,
   Gauge,
   GripVertical,
   ListPlus,
   MessageSquarePlus,
+  Paperclip,
+  Pencil,
   SignalHigh,
   SignalLow,
   SignalMedium,
   Trash2,
+  Upload,
   UserRoundPlus,
   type LucideIcon,
 } from "lucide-react";
@@ -35,20 +40,26 @@ import { SelectNative } from "@/components/ui/select-native";
 import {
   createTask,
   deleteTask,
+  updateTask,
   updateTaskAssignee,
-  updateTaskEffort,
+  updateTaskPriority,
   updateTaskStatus,
   type TaskFormState,
 } from "@/lib/tasks/mutations";
+import {
+  deleteDocument,
+  uploadFile,
+  type DocumentFormState,
+} from "@/lib/documents/actions";
+import type { ProjectDocument } from "@/lib/documents/queries";
 import type { TaskNode as TaskNodeData } from "@/lib/tasks/queries";
 import type { ProjectMember } from "@/lib/members/queries";
 import type { Note } from "@/lib/notes/queries";
 import {
-  TASK_EFFORT_HINT,
-  TASK_EFFORT_LABEL,
-  TASK_EFFORT_OPTIONS,
+  TASK_PRIORITY_LABEL,
+  TASK_PRIORITY_OPTIONS,
   TASK_STATUS_LABEL,
-  type TaskEffort,
+  type TaskPriority,
   type TaskStatus,
 } from "@/types/project";
 import { formatDate } from "@/lib/format";
@@ -64,11 +75,11 @@ const STATUS_META = {
   done: { Icon: CircleCheck, className: "text-emerald-500" },
 } satisfies Record<TaskStatus, { Icon: LucideIcon; className: string }>;
 
-const EFFORT_META = {
-  quick: { Icon: SignalLow, className: "text-emerald-500" },
+const PRIORITY_META = {
+  low: { Icon: SignalLow, className: "text-emerald-500" },
   medium: { Icon: SignalMedium, className: "text-amber-500" },
-  large: { Icon: SignalHigh, className: "text-rose-500" },
-} satisfies Record<TaskEffort, { Icon: LucideIcon; className: string }>;
+  high: { Icon: SignalHigh, className: "text-rose-500" },
+} satisfies Record<TaskPriority, { Icon: LucideIcon; className: string }>;
 
 function initials(name: string | null): string {
   if (!name) return "?";
@@ -78,43 +89,50 @@ function initials(name: string | null): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 const INITIAL: TaskFormState = { ok: false };
+const INITIAL_DOC: DocumentFormState = { ok: false };
 
 const MAX_DEPTH_INDENT = 6;
+
+/** The single inline form a task row can have open at any one time. */
+type OpenForm = "note" | "subtask" | "edit" | "attach" | null;
 
 export function TaskNode({
   node,
   members,
   notesByTaskId,
+  attachmentsByTaskId,
   canManage,
   currentUserId,
 }: {
   node: TaskNodeData;
   members: ProjectMember[];
   notesByTaskId: Map<string, Note[]>;
+  attachmentsByTaskId: Map<string, ProjectDocument[]>;
   canManage: boolean;
   currentUserId: string;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const [showSubtaskForm, setShowSubtaskForm] = React.useState(false);
-  const [showNoteForm, setShowNoteForm] = React.useState(false);
+  const [openForm, setOpenForm] = React.useState<OpenForm>(null);
 
   const indentLevel = Math.min(node.depth, MAX_DEPTH_INDENT);
   const ownNotes = notesByTaskId.get(node.id) ?? [];
+  const ownAttachments = attachmentsByTaskId.get(node.id) ?? [];
   const isTopLevel = indentLevel === 0;
 
-  // The note/subtask add actions live in the row toolbar, so triggering one
-  // also expands the node to reveal the form it opens. yarr
-  // Only one form is ever open at a time: opening one closes the other.
-  const openNoteForm = () => {
+  // The toolbar add actions live in the row, so triggering one also expands the
+  // node to reveal the form it opens. Only one form is ever open at a time.
+  const open = (form: Exclude<OpenForm, null>) => {
     setExpanded(true);
-    setShowSubtaskForm(false);
-    setShowNoteForm(true);
-  };
-  const openSubtaskForm = () => {
-    setExpanded(true);
-    setShowNoteForm(false);
-    setShowSubtaskForm(true);
+    setOpenForm(form);
   };
 
   // Sortable row. Disabled for non-managers (no reorder permission). The
@@ -196,12 +214,15 @@ export function TaskNode({
               : node.assignee
                 ? ` · ${node.assignee.id.slice(0, 8)}`
                 : " · Unassigned"}
-            {node.effort ? ` · ${TASK_EFFORT_LABEL[node.effort]}` : null}
+            {node.priority ? ` · ${TASK_PRIORITY_LABEL[node.priority]}` : null}
             {node.children.length > 0
               ? ` · ${node.children.length} subtask${node.children.length === 1 ? "" : "s"}`
               : null}
             {ownNotes.length > 0
               ? ` · ${ownNotes.length} note${ownNotes.length === 1 ? "" : "s"}`
+              : null}
+            {ownAttachments.length > 0
+              ? ` · ${ownAttachments.length} file${ownAttachments.length === 1 ? "" : "s"}`
               : null}
           </div>
         </div>
@@ -218,11 +239,11 @@ export function TaskNode({
             />
           ) : null}
 
-          <EffortControl
-            key={node.effort ?? "none"}
+          <PriorityControl
+            key={node.priority ?? "none"}
             taskId={node.id}
             projectId={node.project_id}
-            effort={node.effort}
+            priority={node.priority}
           />
 
           <StatusControl
@@ -233,12 +254,36 @@ export function TaskNode({
           />
 
           <div className="flex items-center">
+            {canManage ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => open("edit")}
+                aria-label={`Edit ${node.title}`}
+                title="Edit task"
+              >
+                <Pencil />
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={openNoteForm}
+              onClick={() => open("attach")}
+              aria-label={`Attach a file to ${node.title}`}
+              title="Attach file"
+            >
+              <Paperclip />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => open("note")}
               aria-label={`Add note to ${node.title}`}
               title="Add note"
             >
@@ -249,7 +294,7 @@ export function TaskNode({
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={openSubtaskForm}
+              onClick={() => open("subtask")}
               aria-label={`Add subtask to ${node.title}`}
               title="Add subtask"
             >
@@ -280,9 +325,18 @@ export function TaskNode({
           className="flex flex-col gap-4 pb-4 pr-2"
           style={{ paddingLeft: `${12 + indentLevel * 24 + 36}px` }}
         >
+          {openForm === "edit" && canManage ? (
+            <EditTaskForm
+              node={node}
+              members={members}
+              canManage={canManage}
+              onClose={() => setOpenForm(null)}
+            />
+          ) : null}
+
           {/* Notes only surface when there are notes or the note form is open,
-              so opening the subtask form doesn't drag the notes block in too. */}
-          {ownNotes.length > 0 || showNoteForm ? (
+              so opening another form doesn't drag the notes block in too. */}
+          {ownNotes.length > 0 || openForm === "note" ? (
             <div className="flex flex-col gap-2">
               {ownNotes.length > 0 ? (
                 <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
@@ -295,27 +349,41 @@ export function TaskNode({
                 notes={ownNotes}
                 currentUserId={currentUserId}
                 canManage={canManage}
-                showForm={showNoteForm}
-                onShowFormChange={setShowNoteForm}
+                showForm={openForm === "note"}
+                onShowFormChange={(show) => setOpenForm(show ? "note" : null)}
               />
             </div>
           ) : null}
 
-          {showSubtaskForm ? (
+          {/* Attachments surface when files exist or the attach form is open. */}
+          {ownAttachments.length > 0 || openForm === "attach" ? (
+            <TaskAttachments
+              projectId={node.project_id}
+              taskId={node.id}
+              attachments={ownAttachments}
+              canManage={canManage}
+              showForm={openForm === "attach"}
+              onShowFormChange={(show) => setOpenForm(show ? "attach" : null)}
+            />
+          ) : null}
+
+          {openForm === "subtask" ? (
             <NewSubtaskForm
               projectId={node.project_id}
               parentId={node.id}
               members={members}
               canManage={canManage}
-              onClose={() => setShowSubtaskForm(false)}
+              onClose={() => setOpenForm(null)}
             />
           ) : null}
 
           {/* Plain chevron-expand with nothing else open: gentle empty hint. */}
-          {ownNotes.length === 0 && !showNoteForm && !showSubtaskForm ? (
+          {ownNotes.length === 0 &&
+          ownAttachments.length === 0 &&
+          openForm === null ? (
             <p className="text-xs text-[var(--color-muted-foreground)]">
-              No notes yet. Use the note icon to add one, or the list icon to add
-              a subtask.
+              Nothing here yet. Use the icons above to edit, attach a file, add a
+              note, or add a subtask.
             </p>
           ) : null}
         </div>
@@ -333,6 +401,7 @@ export function TaskNode({
                 node={c}
                 members={members}
                 notesByTaskId={notesByTaskId}
+                attachmentsByTaskId={attachmentsByTaskId}
                 canManage={canManage}
                 currentUserId={currentUserId}
               />
@@ -397,26 +466,28 @@ function StatusControl({
 }
 
 /**
- * Effort estimate as a signal-strength icon (or a neutral gauge when unset),
- * opening a popover to pick Quick / Medium / Large or clear it. Same
- * submit-button-per-option pattern as StatusControl; "" clears the effort.
- * Any project member can set it, matching the task-update RLS policy.
+ * Priority as a signal-strength icon (or a neutral gauge when unset), opening a
+ * popover to pick Low / Medium / High or clear it. Same submit-button-per-option
+ * pattern as StatusControl; "" clears the priority. Any project member can set
+ * it, matching the task-update RLS policy.
  */
-function EffortControl({
+function PriorityControl({
   taskId,
   projectId,
-  effort,
+  priority,
 }: {
   taskId: string;
   projectId: string;
-  effort: TaskEffort | null;
+  priority: TaskPriority | null;
 }) {
-  const current = effort ? EFFORT_META[effort] : null;
+  const current = priority ? PRIORITY_META[priority] : null;
 
   return (
     <Popover
       align="end"
-      triggerLabel={effort ? `Effort: ${TASK_EFFORT_LABEL[effort]}` : "Effort: not set"}
+      triggerLabel={
+        priority ? `Priority: ${TASK_PRIORITY_LABEL[priority]}` : "Priority: not set"
+      }
       triggerClassName="grid size-8 shrink-0 place-items-center rounded-md hover:bg-[var(--color-accent)]"
       trigger={
         current ? (
@@ -426,43 +497,38 @@ function EffortControl({
         )
       }
     >
-      <form action={updateTaskEffort} className="contents">
+      <form action={updateTaskPriority} className="contents">
         <input type="hidden" name="taskId" value={taskId} />
         <input type="hidden" name="projectId" value={projectId} />
         <button
           type="submit"
-          name="effort"
+          name="priority"
           value=""
           role="menuitemradio"
-          aria-checked={!effort}
+          aria-checked={!priority}
           className={MENU_ITEM}
         >
           <Gauge className="size-4 shrink-0 text-[var(--color-muted-foreground)]" />
           <span className="flex-1 text-[var(--color-muted-foreground)]">
             Not set
           </span>
-          {!effort ? <Check className="size-4 shrink-0" /> : null}
+          {!priority ? <Check className="size-4 shrink-0" /> : null}
         </button>
-        {TASK_EFFORT_OPTIONS.map((value) => {
-          const { Icon, className } = EFFORT_META[value];
-          const selected = value === effort;
+        {TASK_PRIORITY_OPTIONS.map((value) => {
+          const { Icon, className } = PRIORITY_META[value];
+          const selected = value === priority;
           return (
             <button
               key={value}
               type="submit"
-              name="effort"
+              name="priority"
               value={value}
               role="menuitemradio"
               aria-checked={selected}
               className={MENU_ITEM}
             >
               <Icon className={`size-4 shrink-0 ${className}`} />
-              <span className="flex-1">
-                {TASK_EFFORT_LABEL[value]}
-                <span className="ml-1 text-xs text-[var(--color-muted-foreground)]">
-                  {TASK_EFFORT_HINT[value]}
-                </span>
-              </span>
+              <span className="flex-1">{TASK_PRIORITY_LABEL[value]}</span>
               {selected ? <Check className="size-4 shrink-0" /> : null}
             </button>
           );
@@ -550,6 +616,254 @@ function AssigneeControl({
   );
 }
 
+/**
+ * Inline full-edit form for a task's core fields (title, assignee, status,
+ * priority, due date). Posts to `updateTask`; closes on success.
+ */
+function EditTaskForm({
+  node,
+  members,
+  canManage,
+  onClose,
+}: {
+  node: TaskNodeData;
+  members: ProjectMember[];
+  canManage: boolean;
+  onClose: () => void;
+}) {
+  const [state, formAction, pending] = useActionState(updateTask, INITIAL);
+
+  React.useEffect(() => {
+    if (state.ok) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.ok]);
+
+  return (
+    <form
+      action={formAction}
+      className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] p-3"
+    >
+      <input type="hidden" name="taskId" value={node.id} />
+      <input type="hidden" name="projectId" value={node.project_id} />
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`edit-title-${node.id}`} className="text-xs">
+          Task title
+        </Label>
+        <Input
+          id={`edit-title-${node.id}`}
+          name="title"
+          required
+          maxLength={200}
+          defaultValue={node.title}
+        />
+        {state.fieldErrors?.title ? (
+          <p className="text-xs text-[var(--color-muted-foreground)]">
+            {state.fieldErrors.title}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {canManage ? (
+          <SelectNative
+            name="assigneeId"
+            defaultValue={node.assignee_id ?? ""}
+            className="text-xs"
+          >
+            <option value="">Unassigned</option>
+            {members.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.fullName ?? m.userId.slice(0, 8)}
+              </option>
+            ))}
+          </SelectNative>
+        ) : null}
+        <SelectNative
+          name="status"
+          defaultValue={node.status}
+          className="text-xs"
+        >
+          <option value="todo">To do</option>
+          <option value="in_progress">In progress</option>
+          <option value="done">Done</option>
+        </SelectNative>
+        <SelectNative
+          name="priority"
+          defaultValue={node.priority ?? ""}
+          className="text-xs"
+        >
+          <option value="">Priority: not set</option>
+          {TASK_PRIORITY_OPTIONS.map((value) => (
+            <option key={value} value={value}>
+              {TASK_PRIORITY_LABEL[value]}
+            </option>
+          ))}
+        </SelectNative>
+        <Input
+          name="dueDate"
+          type="date"
+          className="text-xs"
+          defaultValue={node.due_date ?? ""}
+        />
+      </div>
+
+      {state.message && !state.ok ? (
+        <p className="text-sm text-[var(--color-muted-foreground)]">
+          {state.message}
+        </p>
+      ) : null}
+
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" size="sm" disabled={pending}>
+          Save changes
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Files attached to a single task: a list of downloadable files plus an upload
+ * form. Uploads post to the shared `uploadFile` action with a `taskId`, so the
+ * row lands against this task instead of the project's Documents card.
+ */
+function TaskAttachments({
+  projectId,
+  taskId,
+  attachments,
+  canManage,
+  showForm,
+  onShowFormChange,
+}: {
+  projectId: string;
+  taskId: string;
+  attachments: ProjectDocument[];
+  canManage: boolean;
+  showForm: boolean;
+  onShowFormChange: (show: boolean) => void;
+}) {
+  const [state, formAction, pending] = useActionState(uploadFile, INITIAL_DOC);
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  React.useEffect(() => {
+    if (state.ok) {
+      formRef.current?.reset();
+      onShowFormChange(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.ok]);
+
+  return (
+    <div className="flex flex-col gap-2">
+      {attachments.length > 0 ? (
+        <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
+          Files
+        </div>
+      ) : null}
+
+      {attachments.length > 0 ? (
+        <ul className="flex flex-col divide-y divide-[var(--color-border)] rounded-md border border-[var(--color-border)]">
+          {attachments.map((d) => {
+            const href = `/api/documents/${d.id}/download`;
+            return (
+              <li key={d.id} className="flex items-center gap-3 px-3 py-2">
+                <FileText className="size-4 shrink-0 text-[var(--color-muted-foreground)]" />
+                <div className="min-w-0 flex-1">
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block truncate text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    {d.name}
+                  </a>
+                  <div className="text-xs text-[var(--color-muted-foreground)]">
+                    {d.mime_type ?? "file"} ·{" "}
+                    {d.size_bytes ? formatBytes(d.size_bytes) : "—"} · Added{" "}
+                    {formatDate(d.created_at)}
+                  </div>
+                </div>
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label={`Open ${d.name}`}
+                >
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink />
+                  </a>
+                </Button>
+                {canManage ? (
+                  <form action={deleteDocument}>
+                    <input type="hidden" name="documentId" value={d.id} />
+                    <input type="hidden" name="projectId" value={projectId} />
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      aria-label={`Delete ${d.name}`}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </form>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+
+      {showForm ? (
+        <form
+          ref={formRef}
+          action={formAction}
+          className="flex flex-col gap-3 rounded-md border border-[var(--color-border)] p-3"
+        >
+          <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="taskId" value={taskId} />
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`attach-file-${taskId}`} className="text-xs">
+              Attach file
+            </Label>
+            <Input id={`attach-file-${taskId}`} name="file" type="file" required />
+            <p className="text-xs text-[var(--color-muted-foreground)]">
+              Max 50MB. Stored privately; access controlled by project membership.
+            </p>
+          </div>
+
+          {state.message && !state.ok ? (
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              {state.message}
+            </p>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onShowFormChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={pending}>
+              <Upload />
+              Upload
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
 function NewSubtaskForm({
   projectId,
   parentId,
@@ -617,11 +931,11 @@ function NewSubtaskForm({
           <option value="in_progress">In progress</option>
           <option value="done">Done</option>
         </SelectNative>
-        <SelectNative name="effort" defaultValue="" className="text-xs">
-          <option value="">Effort: not set</option>
-          {TASK_EFFORT_OPTIONS.map((value) => (
+        <SelectNative name="priority" defaultValue="" className="text-xs">
+          <option value="">Priority: not set</option>
+          {TASK_PRIORITY_OPTIONS.map((value) => (
             <option key={value} value={value}>
-              {TASK_EFFORT_LABEL[value]} · {TASK_EFFORT_HINT[value]}
+              {TASK_PRIORITY_LABEL[value]}
             </option>
           ))}
         </SelectNative>

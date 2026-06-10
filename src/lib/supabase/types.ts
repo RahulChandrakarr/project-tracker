@@ -31,8 +31,8 @@ export type ProjectMemberRole = "admin" | "member";
 
 export type TaskStatus = "todo" | "in_progress" | "done";
 
-/** Optional time/effort estimate on a task. Null when not set. */
-export type TaskEffort = "quick" | "medium" | "large";
+/** Optional priority level on a task. Null when not set. */
+export type TaskPriority = "low" | "medium" | "high";
 
 export type DocumentKind = "link" | "file";
 
@@ -167,7 +167,7 @@ export type Database = {
           description: string | null;
           assignee_id: string | null;
           status: TaskStatus;
-          effort: TaskEffort | null;
+          priority: TaskPriority | null;
           due_date: string | null;
           completed_at: string | null;
           position: number;
@@ -183,7 +183,7 @@ export type Database = {
           description?: string | null;
           assignee_id?: string | null;
           status?: TaskStatus;
-          effort?: TaskEffort | null;
+          priority?: TaskPriority | null;
           due_date?: string | null;
           completed_at?: string | null;
           position?: number;
@@ -197,7 +197,7 @@ export type Database = {
           description?: string | null;
           assignee_id?: string | null;
           status?: TaskStatus;
-          effort?: TaskEffort | null;
+          priority?: TaskPriority | null;
           due_date?: string | null;
           completed_at?: string | null;
           position?: number;
@@ -237,6 +237,7 @@ export type Database = {
         Row: {
           id: string;
           project_id: string;
+          task_id: string | null;
           kind: DocumentKind;
           name: string;
           url: string;
@@ -249,6 +250,7 @@ export type Database = {
         Insert: {
           id?: string;
           project_id: string;
+          task_id?: string | null;
           kind: DocumentKind;
           name: string;
           url: string;

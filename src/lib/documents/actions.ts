@@ -16,7 +16,13 @@ const AddLinkInput = z.object({
 
 const UploadFileInput = z.object({
   projectId: z.string().uuid(),
-  // `file` is a Blob/File pulled from FormData separately.
+  // Optional: when set, the file is attached to a single task rather than the
+  // project as a whole. `file` is a Blob/File pulled from FormData separately.
+  taskId: z
+    .string()
+    .uuid()
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
 });
 
 const DeleteDocumentInput = z.object({
@@ -74,9 +80,10 @@ export async function uploadFile(
   formData: FormData,
 ): Promise<DocumentFormState> {
   const projectId = formData.get("projectId");
+  const taskId = formData.get("taskId");
   const file = formData.get("file");
 
-  const parsed = UploadFileInput.safeParse({ projectId });
+  const parsed = UploadFileInput.safeParse({ projectId, taskId });
   if (!parsed.success) {
     return { ok: false, message: "Invalid project." };
   }
@@ -109,6 +116,7 @@ export async function uploadFile(
     .from("project_documents")
     .insert({
       project_id: parsed.data.projectId,
+      task_id: parsed.data.taskId ?? null,
       kind: "file",
       name: file.name,
       url: storagePath, // populated for required NOT NULL — real URL is signed on demand

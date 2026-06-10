@@ -38,11 +38,8 @@ import {
 import type { TaskNode as TaskNodeData } from "@/lib/tasks/queries";
 import type { ProjectMember } from "@/lib/members/queries";
 import type { Note } from "@/lib/notes/queries";
-import {
-  TASK_EFFORT_HINT,
-  TASK_EFFORT_LABEL,
-  TASK_EFFORT_OPTIONS,
-} from "@/types/project";
+import type { ProjectDocument } from "@/lib/documents/queries";
+import { TASK_PRIORITY_LABEL, TASK_PRIORITY_OPTIONS } from "@/types/project";
 
 import { TaskNode } from "./task-node";
 
@@ -124,6 +121,7 @@ export function TasksCard({
   tree: serverTree,
   members,
   notesByTaskId,
+  attachmentsByTaskId,
   canManage,
   currentUserId,
 }: {
@@ -131,6 +129,7 @@ export function TasksCard({
   tree: TaskNodeData[];
   members: ProjectMember[];
   notesByTaskId: Map<string, Note[]>;
+  attachmentsByTaskId: Map<string, ProjectDocument[]>;
   canManage: boolean;
   currentUserId: string;
 }) {
@@ -254,12 +253,12 @@ export function TasksCard({
               </SelectNative>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="effort">Effort</Label>
-              <SelectNative id="effort" name="effort" defaultValue="">
+              <Label htmlFor="priority">Priority</Label>
+              <SelectNative id="priority" name="priority" defaultValue="">
                 <option value="">Not set</option>
-                {TASK_EFFORT_OPTIONS.map((value) => (
+                {TASK_PRIORITY_OPTIONS.map((value) => (
                   <option key={value} value={value}>
-                    {TASK_EFFORT_LABEL[value]} · {TASK_EFFORT_HINT[value]}
+                    {TASK_PRIORITY_LABEL[value]}
                   </option>
                 ))}
               </SelectNative>
@@ -309,6 +308,7 @@ export function TasksCard({
                     node={node}
                     members={members}
                     notesByTaskId={notesByTaskId}
+                    attachmentsByTaskId={attachmentsByTaskId}
                     canManage={canManage}
                     currentUserId={currentUserId}
                   />

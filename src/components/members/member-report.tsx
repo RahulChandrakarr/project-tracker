@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { StatCard } from "@/components/projects/stat-card";
 import type { MemberReport as MemberReportData } from "@/lib/profile/queries";
-import { TASK_EFFORT_LABEL, TASK_STATUS_LABEL } from "@/types/project";
+import { TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from "@/types/project";
 import { formatDate } from "@/lib/format";
 
 import { ProductivityChart } from "./productivity-chart";
@@ -67,7 +67,7 @@ export function MemberReport({ report }: { report: MemberReportData }) {
 
       <TaskBreakdown report={report} />
 
-      <EffortBreakdown report={report} />
+      <PriorityBreakdown report={report} />
 
       <ProductivityChart series={report.series} />
 
@@ -115,9 +115,9 @@ export function MemberReport({ report }: { report: MemberReportData }) {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
-                    {t.effort ? (
+                    {t.priority ? (
                       <Badge variant="secondary">
-                        {TASK_EFFORT_LABEL[t.effort]}
+                        {TASK_PRIORITY_LABEL[t.priority]}
                       </Badge>
                     ) : null}
                     <Badge variant="outline">
@@ -134,16 +134,16 @@ export function MemberReport({ report }: { report: MemberReportData }) {
   );
 }
 
-function EffortBreakdown({ report }: { report: MemberReportData }) {
-  const { quick, medium, large, unset } = report.effort;
-  const estimated = quick + medium + large;
-  const total = estimated + unset;
+function PriorityBreakdown({ report }: { report: MemberReportData }) {
+  const { low, medium, high, unset } = report.priority;
+  const prioritised = low + medium + high;
+  const total = prioritised + unset;
   const pct = (n: number) => (total === 0 ? 0 : (n / total) * 100);
 
   const segments = [
-    { label: "Quick", value: quick, className: "bg-emerald-500" },
+    { label: "Low", value: low, className: "bg-emerald-500" },
     { label: "Medium", value: medium, className: "bg-amber-500" },
-    { label: "Large", value: large, className: "bg-rose-500" },
+    { label: "High", value: high, className: "bg-rose-500" },
     {
       label: "Not set",
       value: unset,
@@ -156,17 +156,17 @@ function EffortBreakdown({ report }: { report: MemberReportData }) {
       <CardHeader>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <CardTitle>Effort mix</CardTitle>
+            <CardTitle>Priority mix</CardTitle>
             <CardDescription>
-              How assigned work splits by time/effort estimate.
+              How assigned work splits by priority.
             </CardDescription>
           </div>
           <div className="text-right">
             <div className="text-2xl font-semibold tabular-nums">
-              {total === 0 ? 0 : Math.round((estimated / total) * 100)}%
+              {total === 0 ? 0 : Math.round((prioritised / total) * 100)}%
             </div>
             <div className="text-xs text-[var(--color-muted-foreground)]">
-              estimated
+              prioritised
             </div>
           </div>
         </div>

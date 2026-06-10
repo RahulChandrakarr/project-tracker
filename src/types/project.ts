@@ -7,7 +7,7 @@ import type {
   ProjectMemberRole,
   ProjectPriority,
   ProjectStatus,
-  TaskEffort,
+  TaskPriority,
   TaskStatus,
 } from "@/lib/supabase/types";
 
@@ -16,7 +16,7 @@ export type {
   ProjectMemberRole,
   ProjectPriority,
   ProjectStatus,
-  TaskEffort,
+  TaskPriority,
   TaskStatus,
 };
 
@@ -50,17 +50,10 @@ export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   done: "Done",
 };
 
-export const TASK_EFFORT_LABEL: Record<TaskEffort, string> = {
-  quick: "Quick",
+export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
+  low: "Low",
   medium: "Medium",
-  large: "Large",
+  high: "High",
 };
 
-/** Rough time each effort level implies, shown as a hint in pickers. */
-export const TASK_EFFORT_HINT: Record<TaskEffort, string> = {
-  quick: "Under a day",
-  medium: "1 to 3 days",
-  large: "Over 3 days",
-};
-
-export const TASK_EFFORT_OPTIONS: TaskEffort[] = ["quick", "medium", "large"];
+export const TASK_PRIORITY_OPTIONS: TaskPriority[] = ["low", "medium", "high"];

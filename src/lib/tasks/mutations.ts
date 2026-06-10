@@ -20,8 +20,30 @@ const CreateTaskInput = z.object({
     .optional()
     .or(z.literal("").transform(() => undefined)),
   status: z.enum(["todo", "in_progress", "done"]).default("todo"),
-  effort: z
-    .enum(["quick", "medium", "large"])
+  priority: z
+    .enum(["low", "medium", "high"])
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  dueDate: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+});
+
+const UpdateTaskInput = z.object({
+  taskId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  title: z.string().trim().min(1, "Title is required").max(200),
+  assigneeId: z
+    .string()
+    .uuid()
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  status: z.enum(["todo", "in_progress", "done"]).default("todo"),
+  priority: z
+    .enum(["low", "medium", "high"])
     .optional()
     .or(z.literal("").transform(() => undefined)),
   dueDate: z
@@ -48,11 +70,11 @@ const UpdateAssigneeInput = z.object({
     .or(z.literal("").transform(() => undefined)),
 });
 
-const UpdateEffortInput = z.object({
+const UpdatePriorityInput = z.object({
   taskId: z.string().uuid(),
   projectId: z.string().uuid(),
-  effort: z
-    .enum(["quick", "medium", "large"])
+  priority: z
+    .enum(["low", "medium", "high"])
     .optional()
     .or(z.literal("").transform(() => undefined)),
 });
@@ -121,7 +143,7 @@ export async function createTask(
     description: parsed.data.description ?? null,
     assignee_id: parsed.data.assigneeId ?? null,
     status: parsed.data.status,
-    effort: parsed.data.effort ?? null,
+    priority: parsed.data.priority ?? null,
     due_date: parsed.data.dueDate ?? null,
     completed_at: parsed.data.status === "done" ? new Date().toISOString() : null,
     position: nextPosition,
@@ -169,17 +191,67 @@ export async function updateTaskAssignee(formData: FormData): Promise<void> {
   revalidatePath(`/projects/${parsed.projectId}`);
 }
 
-export async function updateTaskEffort(formData: FormData): Promise<void> {
-  const parsed = UpdateEffortInput.parse(Object.fromEntries(formData));
+export async function updateTaskPriority(formData: FormData): Promise<void> {
+  const parsed = UpdatePriorityInput.parse(Object.fromEntries(formData));
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("tasks")
-    .update({ effort: parsed.effort ?? null })
+    .update({ priority: parsed.priority ?? null })
     .eq("id", parsed.taskId);
   if (error) throw new Error(error.message);
   revalidatePath(`/projects/${parsed.projectId}`);
-  // Effort feeds the per-member profile breakdown.
+  // Priority feeds the per-member profile breakdown.
   revalidatePath("/members/[id]", "page");
+}
+
+/**
+ * Full edit of a task's core fields (title, assignee, status, priority, due
+ * date) in one go. Status changes keep `completed_at` in sync the same way
+ * `updateTaskStatus` does, so editing a task to done still stamps completion.
+ * Returns a `TaskFormState` so the inline edit form can show field errors.
+ */
+export async function updateTask(
+  _prev: TaskFormState,
+  formData: FormData,
+): Promise<TaskFormState> {
+  const parsed = UpdateTaskInput.safeParse(Object.fromEntries(formData));
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0]?.toString() ?? "_";
+      fieldErrors[key] = issue.message;
+    }
+    return { ok: false, message: "Check the fields below.", fieldErrors };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "You must be signed in." };
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      title: parsed.data.title,
+      assignee_id: parsed.data.assigneeId ?? null,
+      status: parsed.data.status,
+      priority: parsed.data.priority ?? null,
+      due_date: parsed.data.dueDate ?? null,
+      completed_at:
+        parsed.data.status === "done" ? new Date().toISOString() : null,
+    })
+    .eq("id", parsed.data.taskId);
+
+  if (error) return { ok: false, message: error.message };
+
+  // Title/status/priority/assignee all feed the project + member views.
+  revalidatePath(`/projects/${parsed.data.projectId}`);
+  revalidatePath("/");
+  revalidatePath("/projects");
+  revalidatePath("/members/[id]", "page");
+  return { ok: true };
 }
 
 export async function updateTaskNotes(formData: FormData): Promise<void> {

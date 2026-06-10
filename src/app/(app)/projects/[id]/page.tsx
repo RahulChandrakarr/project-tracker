@@ -23,7 +23,10 @@ import {
   listProjectMembers,
 } from "@/lib/members/queries";
 import { listProjectTasks, buildTaskTree } from "@/lib/tasks/queries";
-import { listProjectDocuments } from "@/lib/documents/queries";
+import {
+  listProjectDocuments,
+  listTaskAttachments,
+} from "@/lib/documents/queries";
 import { listProjectNotes, partitionNotes } from "@/lib/notes/queries";
 import { formatDate } from "@/lib/format";
 import { PRIORITY_LABEL } from "@/types/project";
@@ -45,6 +48,7 @@ export default async function ProjectDetailPage({
     assignable,
     tasks,
     documents,
+    taskAttachments,
     categories,
     allNotes,
   ] = await Promise.all([
@@ -54,6 +58,7 @@ export default async function ProjectDetailPage({
     listAssignableUsers(id),
     listProjectTasks(id),
     listProjectDocuments(id),
+    listTaskAttachments(id),
     listCategories(),
     listProjectNotes(id),
   ]);
@@ -119,6 +124,7 @@ export default async function ProjectDetailPage({
             tree={tree}
             members={members}
             notesByTaskId={notesByTaskId}
+            attachmentsByTaskId={taskAttachments}
             canManage={canManage}
             currentUserId={me.id}
           />
