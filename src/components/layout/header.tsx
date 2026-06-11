@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { signOut } from "@/lib/auth/actions";
 import type { AppRole } from "@/lib/supabase/types";
 
@@ -36,6 +37,8 @@ export function Header({
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <NotificationBell userId={userId} />
+
         <Link
           href={`/members/${userId}`}
           aria-label="Your profile"

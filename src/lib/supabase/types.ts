@@ -36,6 +36,12 @@ export type TaskPriority = "low" | "medium" | "high";
 
 export type DocumentKind = "link" | "file";
 
+export type NotificationType =
+  | "task_assigned"
+  | "task_completed"
+  | "project_completed"
+  | "user_pending";
+
 export type Database = {
   public: {
     Tables: {
@@ -335,6 +341,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          actor_id: string | null;
+          type: NotificationType;
+          title: string;
+          body: string | null;
+          project_id: string | null;
+          task_id: string | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          actor_id?: string | null;
+          type: NotificationType;
+          title: string;
+          body?: string | null;
+          project_id?: string | null;
+          task_id?: string | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          read_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -348,6 +384,18 @@ export type Database = {
         Returns: boolean;
       };
       reorder_tasks: { Args: { p_ids: string[] }; Returns: undefined };
+      create_notification: {
+        Args: {
+          p_user: string;
+          p_type: NotificationType;
+          p_title: string;
+          p_body: string | null;
+          p_project: string | null;
+          p_task: string | null;
+          p_actor: string | null;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       app_role: AppRole;
@@ -356,6 +404,7 @@ export type Database = {
       project_member_role: ProjectMemberRole;
       task_status: TaskStatus;
       document_kind: DocumentKind;
+      notification_type: NotificationType;
     };
     CompositeTypes: Record<never, never>;
   };
