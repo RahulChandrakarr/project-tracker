@@ -6,10 +6,10 @@ import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { addNote, type NoteFormState } from "@/lib/notes/actions";
 import type { Note } from "@/lib/notes/queries";
 
+import { NoteEditor } from "./note-editor";
 import { NoteItem } from "./note-item";
 
 const INITIAL: NoteFormState = { ok: false };
@@ -85,7 +85,7 @@ export function NotesList({
           ) : null}
 
           <Input name="title" placeholder="Title (optional)" autoFocus />
-          <Textarea name="body" placeholder="Add a note..." rows={3} required />
+          <NoteEditor name="body" />
           {state.message && !state.ok ? (
             <p className="text-xs text-[var(--color-muted-foreground)]">
               {state.message}

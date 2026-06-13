@@ -153,6 +153,105 @@ export async function listRecentlyCompletedTasks(
 }
 
 /**
+ * Per-member task stats for a project, used by the team metrics card. Reads
+ * every task in the project (RLS already limits this to project members), not
+ * just the viewer's own, so the bars reflect the whole team. Members with no
+ * assigned tasks are omitted; the rest come back busiest-first.
+ */
+export type MemberMetric = {
+  userId: string;
+  fullName: string | null;
+  assigned: number;
+  done: number;
+  open: number;
+  highPriorityOpen: number;
+  /** Share of assigned tasks completed, 0..1. */
+  completionRate: number;
+  /** Mean days from creation to completion across done tasks, or null. */
+  avgCompletionDays: number | null;
+};
+
+export async function listMemberMetrics(
+  projectId: string,
+): Promise<MemberMetric[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: tasks, error } = await supabase
+    .from("tasks")
+    .select("assignee_id, status, priority, created_at, completed_at")
+    .eq("project_id", projectId);
+
+  if (error) throw new Error(`Failed to load metrics: ${error.message}`);
+  if (!tasks?.length) return [];
+
+  type Acc = {
+    assigned: number;
+    done: number;
+    highPriorityOpen: number;
+    completionMs: number;
+    completionSamples: number;
+  };
+  const byUser = new Map<string, Acc>();
+
+  for (const t of tasks) {
+    if (!t.assignee_id) continue; // unassigned work isn't a member's stat
+    const acc =
+      byUser.get(t.assignee_id) ??
+      {
+        assigned: 0,
+        done: 0,
+        highPriorityOpen: 0,
+        completionMs: 0,
+        completionSamples: 0,
+      };
+    acc.assigned += 1;
+    if (t.status === "done") {
+      acc.done += 1;
+      if (t.completed_at && t.created_at) {
+        const span = Date.parse(t.completed_at) - Date.parse(t.created_at);
+        if (Number.isFinite(span) && span >= 0) {
+          acc.completionMs += span;
+          acc.completionSamples += 1;
+        }
+      }
+    } else if (t.priority === "high") {
+      acc.highPriorityOpen += 1;
+    }
+    byUser.set(t.assignee_id, acc);
+  }
+
+  const userIds = Array.from(byUser.keys());
+  let nameById = new Map<string, string | null>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", userIds);
+    nameById = new Map(profiles?.map((p) => [p.id, p.full_name]) ?? []);
+  }
+
+  const dayMs = 1000 * 60 * 60 * 24;
+  return userIds
+    .map((userId) => {
+      const a = byUser.get(userId)!;
+      return {
+        userId,
+        fullName: nameById.get(userId) ?? null,
+        assigned: a.assigned,
+        done: a.done,
+        open: a.assigned - a.done,
+        highPriorityOpen: a.highPriorityOpen,
+        completionRate: a.assigned > 0 ? a.done / a.assigned : 0,
+        avgCompletionDays:
+          a.completionSamples > 0
+            ? a.completionMs / a.completionSamples / dayMs
+            : null,
+      };
+    })
+    .sort((x, y) => y.assigned - x.assigned);
+}
+
+/**
  * Stable sort that floats done tasks to the bottom of a sibling group while
  * preserving the incoming (position) order within the done and not-done
  * groups. Array.prototype.sort is stable, so equal keys keep their order.

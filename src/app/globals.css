@@ -510,6 +510,61 @@
   color: var(--nb-ink-soft);
 }
 
+/* Rich-text typography for project/task notes. Shared by the live note editor
+   and the read-only note bodies so both render identically. Uses the app theme
+   tokens (not the notebook's --nb-* vars, which only exist inside the book). */
+.note-prose {
+  line-height: 1.6;
+  word-break: break-word;
+}
+.note-prose :first-child {
+  margin-top: 0;
+}
+.note-prose :last-child {
+  margin-bottom: 0;
+}
+.note-prose p {
+  margin: 0 0 0.5rem;
+}
+.note-prose ul {
+  margin: 0 0 0.5rem;
+  padding-left: 1.4rem;
+  list-style: disc;
+}
+.note-prose ol {
+  margin: 0 0 0.5rem;
+  padding-left: 1.4rem;
+  list-style: decimal;
+}
+.note-prose li {
+  margin: 0.1rem 0;
+}
+.note-prose a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.note-prose blockquote {
+  margin: 0.5rem 0;
+  padding-left: 0.8rem;
+  border-left: 3px solid var(--color-border);
+  color: var(--color-muted-foreground);
+}
+.note-prose code {
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  background: var(--color-muted);
+  font-size: 0.9em;
+}
+/* tiptap placeholder for an empty note editor. */
+.note-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--color-muted-foreground);
+  pointer-events: none;
+}
+
 /* Drawing layer: a page-sized canvas above the text. */
 .nb-canvas {
   position: absolute;

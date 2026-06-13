@@ -117,6 +117,9 @@ export async function createTask(
   _prev: TaskFormState,
   formData: FormData,
 ): Promise<TaskFormState> {
+  // The optional extras (note / file / subtask) are read off the FormData
+  // directly: the file is a Blob that doesn't belong in the zod schema, and the
+  // rest are plain strings handled after the task itself is created.
   const parsed = CreateTaskInput.safeParse(Object.fromEntries(formData));
 
   if (!parsed.success) {
@@ -148,27 +151,137 @@ export async function createTask(
     : lastQuery.is("parent_id", null));
   const nextPosition = (last?.[0]?.position ?? -1) + 1;
 
-  const { error } = await supabase.from("tasks").insert({
-    project_id: parsed.data.projectId,
-    parent_id: parsed.data.parentId ?? null,
-    title: parsed.data.title,
-    description: parsed.data.description ?? null,
-    assignee_id: parsed.data.assigneeId ?? null,
-    status: parsed.data.status,
-    priority: parsed.data.priority ?? null,
-    due_date: normalizeDueDate(parsed.data.dueDate),
-    completed_at: parsed.data.status === "done" ? new Date().toISOString() : null,
-    position: nextPosition,
-    created_by: user.id,
-  });
+  const { data: created, error } = await supabase
+    .from("tasks")
+    .insert({
+      project_id: parsed.data.projectId,
+      parent_id: parsed.data.parentId ?? null,
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      assignee_id: parsed.data.assigneeId ?? null,
+      status: parsed.data.status,
+      priority: parsed.data.priority ?? null,
+      due_date: normalizeDueDate(parsed.data.dueDate),
+      completed_at:
+        parsed.data.status === "done" ? new Date().toISOString() : null,
+      position: nextPosition,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
 
-  if (error) return { ok: false, message: error.message };
+  if (error || !created) {
+    return { ok: false, message: error?.message ?? "Could not create task." };
+  }
+
+  // Optional extras submitted from the toggleable fields on the add-task form.
+  // Each is best-effort: the task already exists, so a failure here surfaces as
+  // a message rather than rolling the task back.
+  const extraError = await createTaskExtras(supabase, {
+    projectId: parsed.data.projectId,
+    taskId: created.id,
+    userId: user.id,
+    noteTitle: stringField(formData, "noteTitle"),
+    noteBody: stringField(formData, "noteBody"),
+    subtaskTitle: stringField(formData, "subtaskTitle"),
+    file: formData.get("file"),
+  });
 
   // Adding a task changes the project's derived progress, so refresh the lists.
   revalidatePath(`/projects/${parsed.data.projectId}`);
   revalidatePath("/");
   revalidatePath("/projects");
+  if (extraError) return { ok: false, message: extraError };
   return { ok: true };
+}
+
+/** Trimmed string value of a FormData field, or undefined when blank/absent. */
+function stringField(formData: FormData, name: string): string | undefined {
+  const value = formData.get(name);
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/**
+ * Persists the optional note, file attachment, and subtask submitted alongside
+ * a new task. Returns an error message if one of them fails (the task itself is
+ * already saved), or null on success / when there's nothing extra to do.
+ */
+async function createTaskExtras(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  input: {
+    projectId: string;
+    taskId: string;
+    userId: string;
+    noteTitle?: string;
+    noteBody?: string;
+    subtaskTitle?: string;
+    file: FormDataEntryValue | null;
+  },
+): Promise<string | null> {
+  if (input.noteBody) {
+    const { error } = await supabase.from("notes").insert({
+      project_id: input.projectId,
+      task_id: input.taskId,
+      title: input.noteTitle ?? null,
+      body: input.noteBody,
+      created_by: input.userId,
+    });
+    if (error) return `Task saved, but the note failed: ${error.message}`;
+  }
+
+  if (input.file instanceof File && input.file.size > 0) {
+    const file = input.file;
+    if (file.size > 50 * 1024 * 1024) {
+      return "Task saved, but the file is larger than 50MB.";
+    }
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${input.projectId}/${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage
+      .from("project-documents")
+      .upload(storagePath, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+    if (uploadError) {
+      return `Task saved, but the file failed: ${uploadError.message}`;
+    }
+    const { error: insertError } = await supabase
+      .from("project_documents")
+      .insert({
+        project_id: input.projectId,
+        task_id: input.taskId,
+        kind: "file",
+        name: file.name,
+        url: storagePath,
+        storage_path: storagePath,
+        size_bytes: file.size,
+        mime_type: file.type || null,
+        created_by: input.userId,
+      });
+    if (insertError) {
+      await supabase.storage
+        .from("project-documents")
+        .remove([storagePath])
+        .catch(() => undefined);
+      return `Task saved, but the file failed: ${insertError.message}`;
+    }
+  }
+
+  if (input.subtaskTitle) {
+    const { error } = await supabase.from("tasks").insert({
+      project_id: input.projectId,
+      parent_id: input.taskId,
+      title: input.subtaskTitle,
+      status: "todo",
+      position: 0,
+      created_by: input.userId,
+    });
+    if (error) return `Task saved, but the subtask failed: ${error.message}`;
+  }
+
+  return null;
 }
 
 export async function updateTaskStatus(formData: FormData): Promise<void> {

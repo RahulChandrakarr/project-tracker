@@ -14,9 +14,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { deleteNote, updateNote, type NoteFormState } from "@/lib/notes/actions";
 import type { Note } from "@/lib/notes/queries";
+
+import { NoteBody, NoteEditor } from "./note-editor";
 
 const INITIAL: NoteFormState = { ok: false };
 
@@ -68,7 +69,7 @@ export function NoteItem({
           {note.title ? (
             <p className="truncate text-sm font-medium">{note.title}</p>
           ) : null}
-          <p className="line-clamp-3 whitespace-pre-wrap text-sm">{note.body}</p>
+          <NoteBody body={note.body} clamp />
         </button>
         <div className="flex shrink-0 items-center">
           <Button
@@ -117,7 +118,7 @@ export function NoteItem({
             <DialogTitle>{note.title || "Note"}</DialogTitle>
             <DialogDescription>{meta}</DialogDescription>
           </DialogHeader>
-          <p className="whitespace-pre-wrap break-words text-sm">{note.body}</p>
+          <NoteBody body={note.body} />
         </DialogContent>
       </Dialog>
 
@@ -135,13 +136,7 @@ export function NoteItem({
                 placeholder="Title (optional)"
                 defaultValue={note.title ?? ""}
               />
-              <Textarea
-                name="body"
-                rows={8}
-                required
-                defaultValue={note.body}
-                placeholder="Note..."
-              />
+              <NoteEditor name="body" defaultValue={note.body} />
               {state.message && !state.ok ? (
                 <p className="text-xs text-[var(--color-muted-foreground)]">
                   {state.message}

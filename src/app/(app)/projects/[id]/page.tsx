@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditProjectDialog } from "@/components/projects/edit-project-dialog";
+import { MemberMetricsCard } from "@/components/projects/member-metrics-card";
 import { MembersCard } from "@/components/projects/members-card";
 import { ProgressEditor } from "@/components/projects/progress-editor";
 import { ProjectDocumentsCard } from "@/components/projects/project-documents-card";
@@ -22,7 +23,11 @@ import {
   listAssignableUsers,
   listProjectMembers,
 } from "@/lib/members/queries";
-import { listProjectTasks, buildTaskTree } from "@/lib/tasks/queries";
+import {
+  listProjectTasks,
+  buildTaskTree,
+  listMemberMetrics,
+} from "@/lib/tasks/queries";
 import {
   listProjectDocuments,
   listTaskAttachments,
@@ -51,6 +56,7 @@ export default async function ProjectDetailPage({
     taskAttachments,
     categories,
     allNotes,
+    memberMetrics,
   ] = await Promise.all([
     getCurrentUser(),
     getProjectRole(id),
@@ -61,6 +67,7 @@ export default async function ProjectDetailPage({
     listTaskAttachments(id),
     listCategories(),
     listProjectNotes(id),
+    listMemberMetrics(id),
   ]);
 
   const canManage =
@@ -111,7 +118,6 @@ export default async function ProjectDetailPage({
 
         <ProgressEditor
           projectId={project.id}
-          progress={project.progress}
           status={project.status}
           canEdit={canManage}
         />
@@ -139,6 +145,11 @@ export default async function ProjectDetailPage({
             currentUserId={me.id}
           />
 
+          <MemberMetricsCard
+            metrics={memberMetrics}
+            defaultOpen={memberMetrics.length > 0}
+          />
+
           <ProjectNotesCard
             projectId={project.id}
             notes={projectNotes}
@@ -150,6 +161,7 @@ export default async function ProjectDetailPage({
             projectId={project.id}
             documents={documents}
             canManage={canManage}
+            defaultOpen={documents.length > 0}
           />
         </PageMotionItem>
       </PageMotionItem>

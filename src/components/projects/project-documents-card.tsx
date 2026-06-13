@@ -12,13 +12,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CollapsibleCard } from "@/components/ui/collapsible-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,24 +30,24 @@ export function ProjectDocumentsCard({
   projectId,
   documents,
   canManage,
+  defaultOpen = true,
 }: {
   projectId: string;
   documents: ProjectDocument[];
   canManage: boolean;
+  defaultOpen?: boolean;
 }) {
   const [showForms, setShowForms] = React.useState(false);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Documents</CardTitle>
-        <CardDescription>
-          Links (GitHub, Vercel, dashboards) and uploaded files.
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="flex flex-col gap-5">
-        {documents.length > 0 ? (
+    <CollapsibleCard
+      title="Documents"
+      badge={documents.length > 0 ? documents.length : undefined}
+      defaultOpen={defaultOpen}
+      description="Links (GitHub, Vercel, dashboards) and uploaded files."
+      contentClassName="flex flex-col gap-5"
+    >
+      {documents.length > 0 ? (
           <ul className="flex flex-col divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)]">
             {documents.map((d) => (
               <DocumentRow
@@ -96,8 +90,7 @@ export function ProjectDocumentsCard({
             </Button>
           )
         ) : null}
-      </CardContent>
-    </Card>
+    </CollapsibleCard>
   );
 }
 

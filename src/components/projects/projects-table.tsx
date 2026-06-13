@@ -13,7 +13,6 @@ import { formatDate } from "@/lib/format";
 import type { Project } from "@/lib/projects/queries";
 import { PRIORITY_LABEL } from "@/types/project";
 
-import { ProgressBar } from "./progress-bar";
 import { StatusBadge } from "./status-badge";
 
 export function ProjectsTable({
@@ -55,14 +54,7 @@ export function ProjectsTable({
                   <StatusBadge status={p.status} />
                 </div>
 
-                <div className="mt-3 flex items-center gap-2">
-                  <ProgressBar value={p.progress} className="flex-1" />
-                  <span className="w-9 text-right text-xs tabular-nums text-[var(--color-muted-foreground)]">
-                    {p.progress}%
-                  </span>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--color-muted-foreground)]">
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--color-muted-foreground)]">
                   {categoryName ? (
                     <Badge variant="outline">{categoryName}</Badge>
                   ) : null}
@@ -85,7 +77,6 @@ export function ProjectsTable({
             <TableHead>Category</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Priority</TableHead>
-            <TableHead className="w-[160px]">Progress</TableHead>
             <TableHead>Deadline</TableHead>
           </TableRow>
         </TableHeader>
@@ -119,14 +110,6 @@ export function ProjectsTable({
               </TableCell>
               <TableCell className="text-[var(--color-muted-foreground)]">
                 {PRIORITY_LABEL[p.priority]}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <ProgressBar value={p.progress} className="w-24" />
-                  <span className="w-9 text-right text-xs tabular-nums text-[var(--color-muted-foreground)]">
-                    {p.progress}%
-                  </span>
-                </div>
               </TableCell>
               <TableCell className="text-[var(--color-muted-foreground)]">
                 {formatDate(p.deadline)}

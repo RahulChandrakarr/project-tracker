@@ -5,44 +5,29 @@ import * as React from "react";
 import { SelectNative } from "@/components/ui/select-native";
 import { updateProjectStatus } from "@/lib/projects/mutations";
 
-import { ProgressBar } from "./progress-bar";
 import { StatusBadge } from "./status-badge";
 import type { ProjectStatus } from "@/types/project";
 
 /**
- * Progress is derived from task completion (see migration 0008), so it's shown
- * read-only here. Project admins can still change the status.
+ * Project status control. Admins can change the status; everyone else sees a
+ * read-only badge. (The derived progress bar was removed.)
  */
 export function ProgressEditor({
   projectId,
-  progress,
   status,
   canEdit,
 }: {
   projectId: string;
-  progress: number;
   status: ProjectStatus;
   canEdit: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-center gap-3">
-        <ProgressBar value={progress} className="max-w-md min-w-[200px]" />
-        <span
-          className="text-xs tabular-nums text-[var(--color-muted-foreground)]"
-          title="Calculated from completed tasks"
-        >
-          {progress}%
-        </span>
-        {canEdit ? (
-          <ProjectStatusSelect key={status} projectId={projectId} status={status} />
-        ) : (
-          <StatusBadge status={status} />
-        )}
-      </div>
-      <p className="text-xs text-[var(--color-muted-foreground)]">
-        Auto-calculated from completed tasks.
-      </p>
+    <div className="flex flex-wrap items-center gap-3">
+      {canEdit ? (
+        <ProjectStatusSelect key={status} projectId={projectId} status={status} />
+      ) : (
+        <StatusBadge status={status} />
+      )}
     </div>
   );
 }

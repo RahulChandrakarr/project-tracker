@@ -116,6 +116,7 @@ export function TaskNode({
   notesByTaskId,
   attachmentsByTaskId,
   canManage,
+  reorderable = true,
   currentUserId,
 }: {
   node: TaskNodeData;
@@ -123,6 +124,8 @@ export function TaskNode({
   notesByTaskId: Map<string, Note[]>;
   attachmentsByTaskId: Map<string, ProjectDocument[]>;
   canManage: boolean;
+  /** When false (a filter/sort is active), the drag handle is hidden. */
+  reorderable?: boolean;
   currentUserId: string;
 }) {
   const [expanded, setExpanded] = React.useState(false);
@@ -168,7 +171,7 @@ export function TaskNode({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: node.id, disabled: !canManage });
+  } = useSortable({ id: node.id, disabled: !canManage || !reorderable });
 
   return (
     <li
@@ -196,7 +199,7 @@ export function TaskNode({
         ))}
 
         <div className="flex shrink-0 items-center">
-          {canManage ? (
+          {canManage && reorderable ? (
             <button
               type="button"
               aria-label={`Drag to reorder ${node.title}`}
@@ -373,6 +376,7 @@ export function TaskNode({
                 notesByTaskId={notesByTaskId}
                 attachmentsByTaskId={attachmentsByTaskId}
                 canManage={canManage}
+                reorderable={reorderable}
                 currentUserId={currentUserId}
               />
             ))}
