@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { UserPlus, X } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, UserPlus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,12 +30,15 @@ export function MembersCard({
   members,
   assignableUsers,
   canManage,
+  canViewTeamCalendars,
   currentUserId,
 }: {
   projectId: string;
   members: ProjectMember[];
   assignableUsers: AssignableUser[];
   canManage: boolean;
+  /** Project / workspace admins may open teammates' work calendars. */
+  canViewTeamCalendars: boolean;
   currentUserId: string;
 }) {
   const [state, formAction, pending] = useActionState(addMember, INITIAL);
@@ -118,6 +122,17 @@ export function MembersCard({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {canViewTeamCalendars && !isSelf ? (
+                    <Button asChild variant="ghost" size="icon" className="shrink-0">
+                      <Link
+                        href={`/calendar?user=${m.userId}`}
+                        aria-label={`View ${m.fullName ?? "member"} calendar`}
+                      >
+                        <CalendarDays />
+                      </Link>
+                    </Button>
+                  ) : null}
+
                   {canManage && !isSelf ? (
                     <form action={updateMemberRole}>
                       <input

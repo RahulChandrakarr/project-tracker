@@ -142,6 +142,7 @@ export default async function ProjectDetailPage({
             members={members}
             assignableUsers={assignable}
             canManage={canManage}
+            canViewTeamCalendars={canManage}
             currentUserId={me.id}
           />
 

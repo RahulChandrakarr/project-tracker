@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   NotebookPen,
+  Calendar,
   Tags,
   Users,
   UserCircle,
@@ -25,6 +26,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/notebook", label: "Notebook", icon: NotebookPen },
   { href: "/categories", label: "Categories", icon: Tags, adminOnly: true },
   { href: "/members", label: "Members", icon: Users, adminOnly: true },

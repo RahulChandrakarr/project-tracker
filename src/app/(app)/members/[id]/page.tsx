@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft, NotebookPen } from "lucide-react";
+import { ChevronLeft, Calendar, NotebookPen } from "lucide-react";
 
 import {
   PageMotion,
@@ -58,10 +58,25 @@ export default async function MemberDetailPage({
         )}
 
         {isSelf ? (
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm" className="w-fit">
+              <Link href="/calendar">
+                <Calendar />
+                Work calendar
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="w-fit">
+              <Link href="/notebook">
+                <NotebookPen />
+                Open my notebook
+              </Link>
+            </Button>
+          </div>
+        ) : me.role === "admin" ? (
           <Button asChild variant="outline" size="sm" className="w-fit">
-            <Link href="/notebook">
-              <NotebookPen />
-              Open my notebook
+            <Link href={`/calendar?user=${id}`}>
+              <Calendar />
+              View work calendar
             </Link>
           </Button>
         ) : null}

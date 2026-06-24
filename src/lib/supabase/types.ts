@@ -341,6 +341,31 @@ export type Database = {
         };
         Relationships: [];
       };
+      daily_work_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          log_date: string;
+          body: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          log_date: string;
+          body?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          log_date?: string;
+          body?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           id: string;
@@ -381,6 +406,10 @@ export type Database = {
       };
       is_project_admin: {
         Args: { pid: string; uid: string };
+        Returns: boolean;
+      };
+      can_view_user_calendar: {
+        Args: { viewer: string; target: string };
         Returns: boolean;
       };
       reorder_tasks: { Args: { p_ids: string[] }; Returns: undefined };
