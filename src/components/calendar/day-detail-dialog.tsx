@@ -9,7 +9,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DayDetailPanel } from "@/components/calendar/day-detail-panel";
-import type { CalendarDayDetail } from "@/lib/calendar/queries";
+import type {
+  CalendarDayDetail,
+  CalendarProjectOption,
+} from "@/lib/calendar/queries";
 import { formatDate } from "@/lib/format";
 
 export function DayDetailDialog({
@@ -17,11 +20,13 @@ export function DayDetailDialog({
   onOpenChange,
   detail,
   canEdit,
+  projectOptions,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   detail: CalendarDayDetail;
   canEdit: boolean;
+  projectOptions: CalendarProjectOption[];
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -35,11 +40,16 @@ export function DayDetailDialog({
           </DialogTitle>
           <DialogDescription>
             {canEdit
-              ? "Daily work log and completed tasks."
-              : "Work log and completed tasks for this day."}
+              ? "Log the day's tasks and see what you completed."
+              : "Logged tasks and completed work for this day."}
           </DialogDescription>
         </DialogHeader>
-        <DayDetailPanel detail={detail} canEdit={canEdit} embedded />
+        <DayDetailPanel
+          detail={detail}
+          canEdit={canEdit}
+          projectOptions={projectOptions}
+          embedded
+        />
       </DialogContent>
     </Dialog>
   );

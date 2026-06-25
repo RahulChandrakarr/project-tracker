@@ -12,14 +12,8 @@ import {
   Unlink,
 } from "lucide-react";
 
-import {
-  noteExtensions,
-  NoteBody,
-} from "@/components/projects/note-editor";
-import { upsertDailyLog } from "@/lib/calendar/mutations";
+import { noteExtensions } from "@/components/projects/note-editor";
 import { cn } from "@/lib/utils";
-
-type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 function ToolbarButton({
   label,
@@ -50,7 +44,7 @@ function ToolbarButton({
   );
 }
 
-function WorkLogToolbar({ editor }: { editor: Editor }) {
+function Toolbar({ editor }: { editor: Editor }) {
   const [, force] = React.useReducer((x: number) => x + 1, 0);
 
   React.useEffect(() => {
@@ -133,109 +127,37 @@ function WorkLogToolbar({ editor }: { editor: Editor }) {
 }
 
 /**
- * Autosaving rich-text editor for a single day's work log. Read-only when
- * viewing someone else's calendar.
+ * Full rich-text editor (bold/italic/strike/lists/links) for inline notes.
+ * Uncontrolled: seeded from `defaultValue` on mount, reports HTML via
+ * `onChange`. Empty content reports "" so callers can treat it as no notes.
  */
-export function WorkLogEditor({
-  date,
-  defaultBody,
-  canEdit,
+export function RichTextField({
+  defaultValue,
+  onChange,
+  placeholder,
 }: {
-  date: string;
-  defaultBody: string | null;
-  canEdit: boolean;
+  defaultValue: string;
+  onChange: (html: string) => void;
+  placeholder: string;
 }) {
-  const [status, setStatus] = React.useState<SaveStatus>("idle");
-  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestHtml = React.useRef(defaultBody ?? "");
-  const dirty = React.useRef(false);
-
-  const save = React.useCallback(async (html: string) => {
-    setStatus("saving");
-    const result = await upsertDailyLog(date, html);
-    setStatus(result.ok ? "saved" : "error");
-    if (result.ok) dirty.current = false;
-  }, [date]);
-
   const editor = useEditor({
     immediatelyRender: false,
-    editable: canEdit,
-    extensions: noteExtensions(
-      "Write what you worked on today — meetings, progress, blockers…",
-    ),
-    content: defaultBody ?? "",
+    extensions: noteExtensions(placeholder),
+    content: defaultValue,
     editorProps: {
       attributes: {
-        class: "note-prose min-h-[8rem] px-3 py-2 focus:outline-none",
+        class: "note-prose min-h-[5rem] px-3 py-2 focus:outline-none",
       },
     },
     onUpdate: ({ editor: ed }) => {
-      if (!canEdit) return;
-      const html = ed.getText().trim() === "" ? "" : ed.getHTML();
-      latestHtml.current = html;
-      dirty.current = true;
-      setStatus("idle");
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => {
-        void save(html);
-      }, 600);
+      onChange(ed.getText().trim() === "" ? "" : ed.getHTML());
     },
   });
 
-  React.useEffect(() => {
-    if (!editor) return;
-    editor.setEditable(canEdit);
-    const next = defaultBody ?? "";
-    if (next !== latestHtml.current) {
-      editor.commands.setContent(next || "");
-      latestHtml.current = next;
-      dirty.current = false;
-    }
-  }, [date, defaultBody, canEdit, editor]);
-
-  React.useEffect(() => {
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-      if (dirty.current && canEdit) {
-        void save(latestHtml.current);
-      }
-    };
-  }, [canEdit, save]);
-
-  if (!canEdit) {
-    if (!defaultBody) {
-      return (
-        <p className="text-sm text-[var(--color-muted-foreground)]">
-          No work log for this day.
-        </p>
-      );
-    }
-    return <NoteBody body={defaultBody} />;
-  }
-
-  const statusLabel =
-    status === "saving"
-      ? "Saving…"
-      : status === "saved"
-        ? "Saved"
-        : status === "error"
-          ? "Save failed"
-          : null;
-
   return (
-    <div className="flex flex-col gap-2">
-      <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-background)]">
-        {editor ? <WorkLogToolbar editor={editor} /> : null}
-        <EditorContent editor={editor} />
-      </div>
-      {statusLabel ? (
-        <p
-          className="text-xs text-[var(--color-muted-foreground)]"
-          aria-live="polite"
-        >
-          {statusLabel}
-        </p>
-      ) : null}
+    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-background)]">
+      {editor ? <Toolbar editor={editor} /> : null}
+      <EditorContent editor={editor} />
     </div>
   );
 }

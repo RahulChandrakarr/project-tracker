@@ -8,7 +8,6 @@ import {
 import {
   dayBounds,
   monthRange,
-  stripHtmlPreview,
   toDateKey,
 } from "@/lib/calendar/dates";
 import {
@@ -19,21 +18,20 @@ import {
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { TaskStatus } from "@/lib/supabase/types";
 
 export type CalendarDayEntry = {
   id: string;
-  kind: "log" | "task";
+  /** "task" = a manually logged day task; "completed" = a real project task finished that day. */
+  kind: "task" | "completed";
   title: string;
-  preview: string | null;
+  status: TaskStatus | null;
   projectName: string | null;
   projectId?: string;
 };
 
 export type CalendarDaySummary = {
   date: string;
-  hasLog: boolean;
-  completedCount: number;
-  preview: string | null;
   entries: CalendarDayEntry[];
   holidayName: string | null;
   isWeekend: boolean;
@@ -55,11 +53,26 @@ export type CalendarCompletedTask = {
   completedAt: string;
 };
 
+/** A manually logged task entry for a single day. */
+export type CalendarTaskEntry = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  projectId: string | null;
+  projectName: string | null;
+  notes: string;
+};
+
 export type CalendarDayDetail = {
   date: string;
-  logBody: string | null;
+  taskEntries: CalendarTaskEntry[];
   completedTasks: CalendarCompletedTask[];
   holidayName: string | null;
+};
+
+export type CalendarProjectOption = {
+  id: string;
+  name: string;
 };
 
 export type CalendarViewableUser = {
@@ -96,13 +109,14 @@ export async function getCalendarMonth(
   const { start } = dayBounds(startKey);
   const { end } = dayBounds(endKey);
 
-  const [logsResult, tasksResult] = await Promise.all([
+  const [entriesResult, tasksResult] = await Promise.all([
     supabase
-      .from("daily_work_logs")
-      .select("log_date, body")
+      .from("daily_task_entries")
+      .select("id, entry_date, title, status, project_id, position")
       .eq("user_id", userId)
-      .gte("log_date", startKey)
-      .lte("log_date", endKey),
+      .gte("entry_date", startKey)
+      .lte("entry_date", endKey)
+      .order("position", { ascending: true }),
     supabase
       .from("tasks")
       .select("id, title, project_id, completed_at")
@@ -114,15 +128,16 @@ export async function getCalendarMonth(
       .order("completed_at", { ascending: true }),
   ]);
 
-  if (logsResult.error) throw new Error(logsResult.error.message);
+  if (entriesResult.error) throw new Error(entriesResult.error.message);
   if (tasksResult.error) throw new Error(tasksResult.error.message);
 
-  const logByDate = new Map(
-    (logsResult.data ?? []).map((row) => [row.log_date, row.body ?? ""]),
-  );
-
   const projectIds = Array.from(
-    new Set((tasksResult.data ?? []).map((t) => t.project_id)),
+    new Set([
+      ...(tasksResult.data ?? []).map((t) => t.project_id),
+      ...(entriesResult.data ?? [])
+        .map((e) => e.project_id)
+        .filter((id): id is string => id !== null),
+    ]),
   );
   let projectNameById = new Map<string, string>();
   if (projectIds.length > 0) {
@@ -133,13 +148,20 @@ export async function getCalendarMonth(
     projectNameById = new Map(projects?.map((p) => [p.id, p.name]) ?? []);
   }
 
-  const tasksByDate = new Map<string, typeof tasksResult.data>();
+  const entriesByDate = new Map<string, typeof entriesResult.data>();
+  for (const e of entriesResult.data ?? []) {
+    const list = entriesByDate.get(e.entry_date) ?? [];
+    list.push(e);
+    entriesByDate.set(e.entry_date, list);
+  }
+
+  const completedByDate = new Map<string, typeof tasksResult.data>();
   for (const t of tasksResult.data ?? []) {
     if (!t.completed_at) continue;
     const key = toDateKey(new Date(t.completed_at));
-    const list = tasksByDate.get(key) ?? [];
+    const list = completedByDate.get(key) ?? [];
     list.push(t);
-    tasksByDate.set(key, list);
+    completedByDate.set(key, list);
   }
 
   const holidayRegion = getHolidayRegion();
@@ -153,47 +175,38 @@ export async function getCalendarMonth(
     const date = toDateKey(new Date(year, month - 1, day));
     const dow = new Date(year, month - 1, day).getDay();
     const isWeekend = dow === 0 || dow === 6;
-    const body = logByDate.get(date) ?? "";
-    const hasLog = body.trim().length > 0;
-    const dayTasks = tasksByDate.get(date) ?? [];
-    const completedCount = dayTasks.length;
-    const preview = hasLog ? stripHtmlPreview(body) : null;
+    const dayEntries = entriesByDate.get(date) ?? [];
+    const completedTasks = completedByDate.get(date) ?? [];
 
     const entries: CalendarDayEntry[] = [];
-    if (hasLog) {
-      const fullPreview = preview ?? "";
-      const logTitle = fullPreview
-        ? fullPreview.length > 48
-          ? `${fullPreview.slice(0, 47)}…`
-          : fullPreview
-        : "Work log";
+    for (const e of dayEntries) {
       entries.push({
-        id: `log-${date}`,
-        kind: "log",
-        title: logTitle,
-        preview: fullPreview.length > 48 ? fullPreview : null,
-        projectName: null,
+        id: e.id,
+        kind: "task",
+        title: e.title,
+        status: e.status,
+        projectName: e.project_id
+          ? (projectNameById.get(e.project_id) ?? null)
+          : null,
+        projectId: e.project_id ?? undefined,
       });
     }
-    for (const t of dayTasks) {
+    for (const t of completedTasks) {
       entries.push({
         id: t.id,
-        kind: "task",
+        kind: "completed",
         title: t.title,
-        preview: null,
+        status: "done",
         projectName: projectNameById.get(t.project_id) ?? null,
         projectId: t.project_id,
       });
     }
 
-    if (hasLog) daysLogged += 1;
-    tasksCompleted += completedCount;
+    if (dayEntries.length > 0) daysLogged += 1;
+    tasksCompleted += completedTasks.length;
 
     days.push({
       date,
-      hasLog,
-      completedCount,
-      preview,
       entries,
       holidayName: holidaysInMonth.get(date) ?? null,
       isWeekend,
@@ -210,13 +223,13 @@ export async function getDayDetail(
   const { supabase } = await resolveClient(userId);
   const { start, end } = dayBounds(dateKey);
 
-  const [logResult, tasksResult] = await Promise.all([
+  const [entriesResult, tasksResult] = await Promise.all([
     supabase
-      .from("daily_work_logs")
-      .select("body")
+      .from("daily_task_entries")
+      .select("id, title, status, project_id, notes, position")
       .eq("user_id", userId)
-      .eq("log_date", dateKey)
-      .maybeSingle(),
+      .eq("entry_date", dateKey)
+      .order("position", { ascending: true }),
     supabase
       .from("tasks")
       .select("id, title, project_id, completed_at")
@@ -228,11 +241,16 @@ export async function getDayDetail(
       .order("completed_at", { ascending: false }),
   ]);
 
-  if (logResult.error) throw new Error(logResult.error.message);
+  if (entriesResult.error) throw new Error(entriesResult.error.message);
   if (tasksResult.error) throw new Error(tasksResult.error.message);
 
   const projectIds = Array.from(
-    new Set((tasksResult.data ?? []).map((t) => t.project_id)),
+    new Set([
+      ...(tasksResult.data ?? []).map((t) => t.project_id),
+      ...(entriesResult.data ?? [])
+        .map((e) => e.project_id)
+        .filter((id): id is string => id !== null),
+    ]),
   );
   let projectNameById = new Map<string, string>();
   if (projectIds.length > 0) {
@@ -243,8 +261,18 @@ export async function getDayDetail(
     projectNameById = new Map(projects?.map((p) => [p.id, p.name]) ?? []);
   }
 
-  const body = logResult.data?.body ?? "";
-  const logBody = body.trim().length > 0 ? body : null;
+  const taskEntries: CalendarTaskEntry[] = (entriesResult.data ?? []).map(
+    (e) => ({
+      id: e.id,
+      title: e.title,
+      status: e.status,
+      projectId: e.project_id,
+      projectName: e.project_id
+        ? (projectNameById.get(e.project_id) ?? null)
+        : null,
+      notes: e.notes ?? "",
+    }),
+  );
 
   const completedTasks: CalendarCompletedTask[] = (tasksResult.data ?? [])
     .filter((t) => t.completed_at && completedOnDate(t.completed_at, dateKey))
@@ -258,10 +286,27 @@ export async function getDayDetail(
 
   return {
     date: dateKey,
-    logBody,
+    taskEntries,
     completedTasks,
     holidayName: getHolidayName(dateKey),
   };
+}
+
+/**
+ * Projects the current user can attach to a day task entry. RLS scopes this
+ * to projects the caller can see. Used only for editing the caller's own
+ * calendar, so it always runs as the signed-in user.
+ */
+export async function listCalendarProjectOptions(): Promise<
+  CalendarProjectOption[]
+> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, name")
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   getCalendarMonth,
   getCalendarUserLabel,
   getDayDetail,
+  listCalendarProjectOptions,
   listCalendarViewableUsers,
 } from "@/lib/calendar/queries";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -55,14 +56,16 @@ export default async function CalendarPage({
   const selectedDate =
     params.date && isValidDateKey(params.date) ? params.date : null;
 
-  const [monthData, viewableUsers, userLabel, canViewOthers] = await Promise.all([
-    getCalendarMonth(targetUserId, year, month),
-    listCalendarViewableUsers(),
-    targetUserId === me.id
-      ? Promise.resolve(me.fullName)
-      : getCalendarUserLabel(targetUserId),
-    canViewOthersCalendars(),
-  ]);
+  const canEdit = targetUserId === me.id;
+
+  const [monthData, viewableUsers, userLabel, canViewOthers, projectOptions] =
+    await Promise.all([
+      getCalendarMonth(targetUserId, year, month),
+      listCalendarViewableUsers(),
+      canEdit ? Promise.resolve(me.fullName) : getCalendarUserLabel(targetUserId),
+      canViewOthersCalendars(),
+      canEdit ? listCalendarProjectOptions() : Promise.resolve([]),
+    ]);
 
   const dayDetail = selectedDate
     ? await getDayDetail(targetUserId, selectedDate)
@@ -80,6 +83,7 @@ export default async function CalendarPage({
           monthData={monthData}
           selectedDate={selectedDate}
           dayDetail={dayDetail}
+          projectOptions={projectOptions}
         />
       </PageMotionItem>
     </PageMotion>

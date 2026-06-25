@@ -12,28 +12,26 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CompletedTasksList } from "@/components/calendar/completed-tasks-list";
-import { WorkLogEditor } from "@/components/calendar/work-log-editor";
-import type { CalendarDayDetail } from "@/lib/calendar/queries";
+import { DayTasksEditor } from "@/components/calendar/day-tasks-editor";
+import { TASK_STATUS_LABEL } from "@/lib/calendar/status";
+import type {
+  CalendarDayDetail,
+  CalendarProjectOption,
+} from "@/lib/calendar/queries";
 import { formatDate } from "@/lib/format";
-
-function plainTextFromHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 function buildDaySummary(detail: CalendarDayDetail): string {
   const lines: string[] = [`Work log — ${formatDate(detail.date)}`, ""];
 
-  if (detail.logBody) {
-    lines.push(plainTextFromHtml(detail.logBody));
+  if (detail.taskEntries.length > 0) {
+    lines.push("Tasks:");
+    for (const t of detail.taskEntries) {
+      const project = t.projectName ? ` (${t.projectName})` : "";
+      lines.push(`• ${t.title}${project} — ${TASK_STATUS_LABEL[t.status]}`);
+    }
     lines.push("");
   } else {
-    lines.push("(No manual log)");
+    lines.push("(No tasks logged)");
     lines.push("");
   }
 
@@ -53,23 +51,27 @@ function buildDaySummary(detail: CalendarDayDetail): string {
 function DayDetailBody({
   detail,
   canEdit,
+  projectOptions,
 }: {
   detail: CalendarDayDetail;
   canEdit: boolean;
+  projectOptions: CalendarProjectOption[];
 }) {
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
-        <h3 className="text-base font-semibold tracking-tight">Work log</h3>
+        <h3 className="text-base font-semibold tracking-tight">Tasks</h3>
         {canEdit ? (
           <p className="text-sm text-[var(--color-muted-foreground)]">
-            Write what you worked on today. Changes save automatically.
+            Log the tasks you worked on. Pick a status, add a project if it
+            relates to one, then Save.
           </p>
         ) : null}
-        <WorkLogEditor
+        <DayTasksEditor
           key={detail.date}
           date={detail.date}
-          defaultBody={detail.logBody}
+          defaultEntries={detail.taskEntries}
+          projectOptions={projectOptions}
           canEdit={canEdit}
         />
       </section>
@@ -87,10 +89,12 @@ function DayDetailBody({
 export function DayDetailPanel({
   detail,
   canEdit,
+  projectOptions,
   embedded = false,
 }: {
   detail: CalendarDayDetail;
   canEdit: boolean;
+  projectOptions: CalendarProjectOption[];
   embedded?: boolean;
 }) {
   const [copied, setCopied] = React.useState(false);
@@ -122,7 +126,11 @@ export function DayDetailPanel({
     return (
       <div className="flex flex-col gap-4">
         <div className="flex justify-end">{copyButton}</div>
-        <DayDetailBody detail={detail} canEdit={canEdit} />
+        <DayDetailBody
+          detail={detail}
+          canEdit={canEdit}
+          projectOptions={projectOptions}
+        />
       </div>
     );
   }
@@ -141,7 +149,11 @@ export function DayDetailPanel({
         {copyButton}
       </CardHeader>
       <CardContent>
-        <DayDetailBody detail={detail} canEdit={canEdit} />
+        <DayDetailBody
+          detail={detail}
+          canEdit={canEdit}
+          projectOptions={projectOptions}
+        />
       </CardContent>
     </Card>
   );

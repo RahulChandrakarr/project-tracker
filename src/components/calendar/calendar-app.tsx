@@ -12,6 +12,7 @@ import { getHolidayRegion, HOLIDAY_REGION_LABEL } from "@/lib/calendar/holidays"
 import type {
   CalendarDayDetail,
   CalendarMonthData,
+  CalendarProjectOption,
   CalendarViewableUser,
 } from "@/lib/calendar/queries";
 
@@ -46,6 +47,7 @@ export function CalendarApp({
   monthData,
   selectedDate,
   dayDetail,
+  projectOptions,
 }: {
   userId: string;
   currentUserId: string;
@@ -55,6 +57,7 @@ export function CalendarApp({
   monthData: CalendarMonthData;
   selectedDate: string | null;
   dayDetail: CalendarDayDetail | null;
+  projectOptions: CalendarProjectOption[];
 }) {
   const router = useRouter();
   const canEdit = userId === currentUserId;
@@ -184,6 +187,7 @@ export function CalendarApp({
           }}
           detail={dayDetail}
           canEdit={canEdit}
+          projectOptions={projectOptions}
         />
       ) : null}
     </div>

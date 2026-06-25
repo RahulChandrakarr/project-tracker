@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { TASK_STATUS_LABEL } from "@/lib/calendar/status";
 import type { CalendarDayEntry } from "@/lib/calendar/queries";
 
 const MAX_VISIBLE = 3;
@@ -14,9 +15,11 @@ export function DayEntryCard({
   compact?: boolean;
 }) {
   const badgeLabel =
-    entry.kind === "log"
-      ? "Work day"
-      : (entry.projectName ?? "Done task");
+    entry.kind === "completed"
+      ? (entry.projectName ?? "Completed")
+      : entry.status
+        ? TASK_STATUS_LABEL[entry.status]
+        : "Task";
 
   const inner = (
     <>
@@ -28,18 +31,23 @@ export function DayEntryCard({
       >
         {entry.title}
       </p>
-      <Badge variant="muted" className="mt-1 w-fit text-[10px]">
+      <Badge
+        variant={entry.status === "done" ? "default" : "muted"}
+        className="mt-1 w-fit text-[10px]"
+      >
         {badgeLabel}
       </Badge>
-      {entry.preview ? (
-        <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-[var(--color-muted-foreground)]">
-          {entry.preview}
+      {entry.kind === "task" && entry.projectName ? (
+        <p className="mt-1 line-clamp-1 text-[10px] leading-snug text-[var(--color-muted-foreground)]">
+          {entry.projectName}
         </p>
       ) : null}
     </>
   );
 
-  if (entry.kind === "task" && entry.projectId) {
+  // Only real completed tasks deep-link to their project; manually logged
+  // day tasks open the day dialog via the parent button.
+  if (entry.kind === "completed" && entry.projectId) {
     return (
       <Link
         href={`/projects/${entry.projectId}`}

@@ -366,6 +366,43 @@ export type Database = {
         };
         Relationships: [];
       };
+      daily_task_entries: {
+        Row: {
+          id: string;
+          user_id: string;
+          entry_date: string;
+          title: string;
+          status: TaskStatus;
+          project_id: string | null;
+          notes: string;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          entry_date: string;
+          title: string;
+          status?: TaskStatus;
+          project_id?: string | null;
+          notes?: string;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          entry_date?: string;
+          title?: string;
+          status?: TaskStatus;
+          project_id?: string | null;
+          notes?: string;
+          position?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           id: string;

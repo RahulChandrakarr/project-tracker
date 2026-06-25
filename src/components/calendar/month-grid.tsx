@@ -104,14 +104,24 @@ export function MonthGrid({
           const hasEntries = day.entries.length > 0;
 
           return (
-            <button
+            // Not a <button>: cells contain interactive children (entry links,
+            // "+N more"), and nesting buttons/anchors inside a button is invalid
+            // HTML and breaks hydration. Use a div with button semantics.
+            <div
               key={day.date}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectDate(day.date)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectDate(day.date);
+                }
+              }}
               aria-pressed={isSelected}
               aria-label={`${dayNum}${day.holidayName ? `, ${day.holidayName}` : ""}${hasEntries ? `, ${day.entries.length} entries` : ""}`}
               className={cn(
-                "group flex min-h-28 flex-col border-b border-r border-[var(--color-border)] p-1.5 text-left transition-colors last:border-r-0",
+                "group flex min-h-28 cursor-pointer flex-col border-b border-r border-[var(--color-border)] p-1.5 text-left transition-colors last:border-r-0",
                 "hover:bg-[var(--color-accent)]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-ring)]",
                 weekend && !isSelected && weekendCellClass,
                 isSelected && "bg-[var(--color-secondary)]",
@@ -144,7 +154,7 @@ export function MonthGrid({
                   />
                 </span>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
