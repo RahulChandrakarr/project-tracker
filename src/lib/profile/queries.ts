@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCurrentUser, type CurrentUser } from "@/lib/auth/current-user";
+import { toDateKey } from "@/lib/calendar/dates";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AppRole, TaskPriority, TaskStatus } from "@/lib/supabase/types";
 import type { DashboardTask, TaskRow } from "@/lib/tasks/queries";
@@ -54,6 +55,19 @@ export type PriorityBreakdown = {
   unset: number;
 };
 
+/** Work-calendar activity: tasks the member logged against days. */
+export type CalendarActivity = {
+  /** Distinct days with at least one logged task. */
+  daysLogged: number;
+  /** Total logged day tasks. */
+  tasksLogged: number;
+  done: number;
+  inProgress: number;
+  todo: number;
+  loggedThisWeek: number;
+  loggedThisMonth: number;
+};
+
 export type MemberReport = {
   totalAssigned: number;
   completed: number;
@@ -73,6 +87,8 @@ export type MemberReport = {
   onTimeRate: number | null;
   /** Assigned tasks grouped by their optional priority. */
   priority: PriorityBreakdown;
+  /** Work-calendar logging activity. */
+  calendar: CalendarActivity;
   series: ProductivitySeries;
   recentTasks: MemberReportTask[];
 };
@@ -135,7 +151,7 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
 
   const admin = createSupabaseAdminClient();
 
-  const [tasksResult, membershipResult] = await Promise.all([
+  const [tasksResult, membershipResult, calendarResult] = await Promise.all([
     admin
       .from("tasks")
       .select(
@@ -143,8 +159,13 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
       )
       .eq("assignee_id", userId),
     admin.from("project_members").select("project_id").eq("user_id", userId),
+    admin
+      .from("daily_task_entries")
+      .select("entry_date, status")
+      .eq("user_id", userId),
   ]);
   if (tasksResult.error) throw new Error(tasksResult.error.message);
+  if (calendarResult.error) throw new Error(calendarResult.error.message);
 
   const rows = tasksResult.data ?? [];
   const projectsInvolved = new Set(
@@ -233,6 +254,31 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
       ? null
       : Math.round((onTimeCount / dueDatedCompleted) * 100);
 
+  // ----- work-calendar logging activity -----
+  const weekStartKey = toDateKey(weekStart);
+  const monthStartKey = toDateKey(monthStart);
+  const calendarRows = calendarResult.data ?? [];
+  const loggedDays = new Set<string>();
+  const calendar: CalendarActivity = {
+    daysLogged: 0,
+    tasksLogged: calendarRows.length,
+    done: 0,
+    inProgress: 0,
+    todo: 0,
+    loggedThisWeek: 0,
+    loggedThisMonth: 0,
+  };
+  for (const e of calendarRows) {
+    loggedDays.add(e.entry_date);
+    if (e.status === "done") calendar.done += 1;
+    else if (e.status === "in_progress") calendar.inProgress += 1;
+    else calendar.todo += 1;
+    // entry_date is a plain YYYY-MM-DD key, so lexical compare works.
+    if (e.entry_date >= weekStartKey) calendar.loggedThisWeek += 1;
+    if (e.entry_date >= monthStartKey) calendar.loggedThisMonth += 1;
+  }
+  calendar.daysLogged = loggedDays.size;
+
   // ----- productivity buckets at three granularities (oldest first) -----
   const series: ProductivitySeries = {
     daily: fillBuckets(rows, dailyPeriods()),
@@ -269,6 +315,7 @@ export async function getMemberReport(userId: string): Promise<MemberReport> {
     avgCompletionDays,
     onTimeRate,
     priority,
+    calendar,
     series,
     recentTasks,
   };

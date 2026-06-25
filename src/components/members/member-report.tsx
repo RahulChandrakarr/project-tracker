@@ -63,11 +63,23 @@ export function MemberReport({ report }: { report: MemberReportData }) {
           value={report.onTimeRate === null ? "—" : `${report.onTimeRate}%`}
           hint="Tasks done by their due date"
         />
+        <StatCard
+          label="Days logged"
+          value={report.calendar.daysLogged}
+          hint={`${report.calendar.tasksLogged} calendar tasks`}
+        />
+        <StatCard
+          label="Logged this week"
+          value={report.calendar.loggedThisWeek}
+          hint={`${report.calendar.loggedThisMonth} this month`}
+        />
       </div>
 
       <TaskBreakdown report={report} />
 
       <PriorityBreakdown report={report} />
+
+      <CalendarBreakdown report={report} />
 
       <ProductivityChart series={report.series} />
 
@@ -197,6 +209,81 @@ function PriorityBreakdown({ report }: { report: MemberReportData }) {
             </span>
           ))}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CalendarBreakdown({ report }: { report: MemberReportData }) {
+  const { daysLogged, tasksLogged, done, inProgress, todo } = report.calendar;
+  const pct = (n: number) => (tasksLogged === 0 ? 0 : (n / tasksLogged) * 100);
+
+  const segments = [
+    { label: "Done", value: done, className: "bg-[var(--color-primary)]" },
+    {
+      label: "In progress",
+      value: inProgress,
+      className: "bg-[var(--color-primary)]/55",
+    },
+    {
+      label: "To do",
+      value: todo,
+      className: "bg-[var(--color-primary)]/20",
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <CardTitle>Work calendar</CardTitle>
+            <CardDescription>
+              Tasks logged against days, split by status.
+            </CardDescription>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-semibold tabular-nums">
+              {daysLogged}
+            </div>
+            <div className="text-xs text-[var(--color-muted-foreground)]">
+              {daysLogged === 1 ? "day logged" : "days logged"}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {tasksLogged === 0 ? (
+          <p className="rounded-md border border-dashed border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted-foreground)]">
+            No calendar tasks logged yet.
+          </p>
+        ) : (
+          <>
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-[var(--color-secondary)]">
+              {segments.map((s) =>
+                s.value === 0 ? null : (
+                  <div
+                    key={s.label}
+                    className={s.className}
+                    style={{ width: `${pct(s.value)}%` }}
+                    title={`${s.label}: ${s.value}`}
+                  />
+                ),
+              )}
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+              {segments.map((s) => (
+                <span key={s.label} className="inline-flex items-center gap-1.5">
+                  <span className={`size-2.5 rounded-sm ${s.className}`} />
+                  <span className="text-[var(--color-muted-foreground)]">
+                    {s.label}
+                  </span>
+                  <span className="font-medium tabular-nums">{s.value}</span>
+                </span>
+              ))}
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
