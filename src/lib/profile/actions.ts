@@ -98,6 +98,60 @@ export async function updateProfileDetails(
   return { ok: true, message: "Profile updated." };
 }
 
+/** Accepts published Notion pages and Notion Calendar links only. */
+function isNotionEmbedUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const host = url.hostname.toLowerCase();
+  return (
+    host === "notion.so" ||
+    host.endsWith(".notion.so") ||
+    host === "notion.site" ||
+    host.endsWith(".notion.site") ||
+    host === "notion.com" ||
+    host.endsWith(".notion.com")
+  );
+}
+
+/**
+ * Saves (or clears, when blank) the signed-in user's Notion embed link. Self
+ * only — a personal link, so admins don't set it for others.
+ */
+export async function updateNotionEmbed(
+  url: string,
+): Promise<ProfileFormState> {
+  const me = await getCurrentUser();
+  const trimmed = (url ?? "").trim();
+
+  if (trimmed !== "" && !isNotionEmbedUrl(trimmed)) {
+    return {
+      ok: false,
+      message: "Enter a valid Notion link (notion.so or notion.site).",
+    };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({
+      notion_embed_url: trimmed === "" ? null : trimmed,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", me.id);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath(`/members/${me.id}`);
+  return {
+    ok: true,
+    message: trimmed === "" ? "Notion link removed." : "Notion link saved.",
+  };
+}
+
 export async function updateMyPassword(
   _prev: ProfileFormState,
   formData: FormData,

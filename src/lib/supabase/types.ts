@@ -65,6 +65,7 @@ export type Database = {
           bio: string | null;
           role: AppRole;
           approved: boolean;
+          notion_embed_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -78,6 +79,7 @@ export type Database = {
           bio?: string | null;
           role?: AppRole;
           approved?: boolean;
+          notion_embed_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -91,6 +93,7 @@ export type Database = {
           bio?: string | null;
           role?: AppRole;
           approved?: boolean;
+          notion_embed_url?: string | null;
           updated_at?: string;
         };
         Relationships: [];

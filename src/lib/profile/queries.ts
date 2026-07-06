@@ -18,6 +18,7 @@ export type MemberProfile = {
   location: string | null;
   bio: string | null;
   role: AppRole;
+  notionEmbedUrl: string | null;
   createdAt: string;
   lastSignInAt: string | null;
 };
@@ -141,6 +142,7 @@ export async function getMemberProfile(
     location: profile?.location ?? null,
     bio: profile?.bio ?? null,
     role: (profile?.role ?? "member") as AppRole,
+    notionEmbedUrl: profile?.notion_embed_url ?? null,
     createdAt: authData.user.created_at ?? "",
     lastSignInAt: authData.user.last_sign_in_at ?? null,
   };
