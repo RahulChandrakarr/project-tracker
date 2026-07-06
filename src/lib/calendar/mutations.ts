@@ -71,3 +71,70 @@ export async function saveDayTaskEntries(
   revalidatePath("/calendar");
   return { ok: true };
 }
+
+const SetAttendanceInput = z.object({
+  userId: z.string().uuid(),
+  date: z.string().refine(isValidDateKey, "Invalid date"),
+  status: z.enum([
+    "present",
+    "absent",
+    "half_day",
+    "paid_leave",
+    "sick_leave",
+    "work_from_home",
+    "holiday",
+  ]),
+  note: z.string().max(500).default(""),
+});
+
+export type SetAttendanceState = {
+  ok: boolean;
+  message?: string;
+};
+
+/**
+ * Sets attendance for a user on a day. A user may set their own; app admins
+ * may set anyone's. RLS enforces the same rule as a backstop.
+ */
+export async function setAttendance(
+  userId: string,
+  date: string,
+  status: string,
+  note = "",
+): Promise<SetAttendanceState> {
+  const parsed = SetAttendanceInput.safeParse({ userId, date, status, note });
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: "You must be signed in." };
+
+  if (parsed.data.userId !== user.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.role !== "admin") {
+      return { ok: false, message: "Only admins can set others' attendance." };
+    }
+  }
+
+  const { error } = await supabase.from("daily_attendance").upsert(
+    {
+      user_id: parsed.data.userId,
+      attendance_date: parsed.data.date,
+      status: parsed.data.status,
+      note: parsed.data.note,
+    },
+    { onConflict: "user_id,attendance_date" },
+  );
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/calendar");
+  return { ok: true };
+}

@@ -3,11 +3,12 @@ import { notFound } from "next/navigation";
 import { PageMotion, PageMotionItem } from "@/components/layout/page-motion";
 import { CalendarApp } from "@/components/calendar/calendar-app";
 import { canViewUserCalendar, canViewOthersCalendars } from "@/lib/calendar/access";
-import { isValidDateKey } from "@/lib/calendar/dates";
+import { isValidDateKey, todayDateKey } from "@/lib/calendar/dates";
 import {
   getCalendarMonth,
   getCalendarUserLabel,
   getDayDetail,
+  getMyAttendance,
   listCalendarProjectOptions,
   listCalendarViewableUsers,
 } from "@/lib/calendar/queries";
@@ -58,14 +59,21 @@ export default async function CalendarPage({
 
   const canEdit = targetUserId === me.id;
 
-  const [monthData, viewableUsers, userLabel, canViewOthers, projectOptions] =
-    await Promise.all([
-      getCalendarMonth(targetUserId, year, month),
-      listCalendarViewableUsers(),
-      canEdit ? Promise.resolve(me.fullName) : getCalendarUserLabel(targetUserId),
-      canViewOthersCalendars(),
-      canEdit ? listCalendarProjectOptions() : Promise.resolve([]),
-    ]);
+  const [
+    monthData,
+    viewableUsers,
+    userLabel,
+    canViewOthers,
+    projectOptions,
+    todayAttendance,
+  ] = await Promise.all([
+    getCalendarMonth(targetUserId, year, month),
+    listCalendarViewableUsers(),
+    canEdit ? Promise.resolve(me.fullName) : getCalendarUserLabel(targetUserId),
+    canViewOthersCalendars(),
+    canEdit ? listCalendarProjectOptions() : Promise.resolve([]),
+    getMyAttendance(todayDateKey()),
+  ]);
 
   const dayDetail = selectedDate
     ? await getDayDetail(targetUserId, selectedDate)
@@ -84,6 +92,8 @@ export default async function CalendarPage({
           selectedDate={selectedDate}
           dayDetail={dayDetail}
           projectOptions={projectOptions}
+          isAppAdmin={me.role === "admin"}
+          todayAttendance={todayAttendance}
         />
       </PageMotionItem>
     </PageMotion>

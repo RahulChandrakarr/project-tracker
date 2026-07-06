@@ -18,7 +18,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { TaskStatus } from "@/lib/supabase/types";
+import type { AttendanceStatus, TaskStatus } from "@/lib/supabase/types";
 
 export type CalendarDayEntry = {
   id: string;
@@ -35,6 +35,8 @@ export type CalendarDaySummary = {
   entries: CalendarDayEntry[];
   holidayName: string | null;
   isWeekend: boolean;
+  /** Stored attendance for this day; null when the user set nothing. */
+  attendance: AttendanceStatus | null;
 };
 
 export type CalendarMonthData = {
@@ -68,6 +70,8 @@ export type CalendarDayDetail = {
   taskEntries: CalendarTaskEntry[];
   completedTasks: CalendarCompletedTask[];
   holidayName: string | null;
+  attendanceStatus: AttendanceStatus | null;
+  attendanceNote: string;
 };
 
 export type CalendarProjectOption = {
@@ -109,7 +113,7 @@ export async function getCalendarMonth(
   const { start } = dayBounds(startKey);
   const { end } = dayBounds(endKey);
 
-  const [entriesResult, tasksResult] = await Promise.all([
+  const [entriesResult, tasksResult, attendanceResult] = await Promise.all([
     supabase
       .from("daily_task_entries")
       .select("id, entry_date, title, status, project_id, position")
@@ -126,10 +130,21 @@ export async function getCalendarMonth(
       .gte("completed_at", start)
       .lte("completed_at", end)
       .order("completed_at", { ascending: true }),
+    supabase
+      .from("daily_attendance")
+      .select("attendance_date, status")
+      .eq("user_id", userId)
+      .gte("attendance_date", startKey)
+      .lte("attendance_date", endKey),
   ]);
 
   if (entriesResult.error) throw new Error(entriesResult.error.message);
   if (tasksResult.error) throw new Error(tasksResult.error.message);
+  if (attendanceResult.error) throw new Error(attendanceResult.error.message);
+
+  const attendanceByDate = new Map(
+    (attendanceResult.data ?? []).map((a) => [a.attendance_date, a.status]),
+  );
 
   const projectIds = Array.from(
     new Set([
@@ -210,6 +225,7 @@ export async function getCalendarMonth(
       entries,
       holidayName: holidaysInMonth.get(date) ?? null,
       isWeekend,
+      attendance: attendanceByDate.get(date) ?? null,
     });
   }
 
@@ -223,7 +239,7 @@ export async function getDayDetail(
   const { supabase } = await resolveClient(userId);
   const { start, end } = dayBounds(dateKey);
 
-  const [entriesResult, tasksResult] = await Promise.all([
+  const [entriesResult, tasksResult, attendanceResult] = await Promise.all([
     supabase
       .from("daily_task_entries")
       .select("id, title, status, project_id, notes, position")
@@ -239,10 +255,17 @@ export async function getDayDetail(
       .gte("completed_at", start)
       .lte("completed_at", end)
       .order("completed_at", { ascending: false }),
+    supabase
+      .from("daily_attendance")
+      .select("status, note")
+      .eq("user_id", userId)
+      .eq("attendance_date", dateKey)
+      .maybeSingle(),
   ]);
 
   if (entriesResult.error) throw new Error(entriesResult.error.message);
   if (tasksResult.error) throw new Error(tasksResult.error.message);
+  if (attendanceResult.error) throw new Error(attendanceResult.error.message);
 
   const projectIds = Array.from(
     new Set([
@@ -289,6 +312,8 @@ export async function getDayDetail(
     taskEntries,
     completedTasks,
     holidayName: getHolidayName(dateKey),
+    attendanceStatus: attendanceResult.data?.status ?? null,
+    attendanceNote: attendanceResult.data?.note ?? "",
   };
 }
 
@@ -382,6 +407,22 @@ export async function listCalendarViewableUsers(): Promise<CalendarViewableUser[
   }
 
   return allowed;
+}
+
+/** The signed-in user's stored attendance for a day (null if unset). */
+export async function getMyAttendance(
+  dateKey: string,
+): Promise<AttendanceStatus | null> {
+  const me = await getCurrentUser();
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("daily_attendance")
+    .select("status")
+    .eq("user_id", me.id)
+    .eq("attendance_date", dateKey)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.status ?? null;
 }
 
 export async function getCalendarUserLabel(

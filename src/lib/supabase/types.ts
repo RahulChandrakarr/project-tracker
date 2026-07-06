@@ -31,6 +31,15 @@ export type ProjectMemberRole = "admin" | "member";
 
 export type TaskStatus = "todo" | "in_progress" | "done";
 
+export type AttendanceStatus =
+  | "present"
+  | "absent"
+  | "half_day"
+  | "paid_leave"
+  | "sick_leave"
+  | "work_from_home"
+  | "holiday";
+
 /** Optional priority level on a task. Null when not set. */
 export type TaskPriority = "low" | "medium" | "high";
 
@@ -403,6 +412,34 @@ export type Database = {
         };
         Relationships: [];
       };
+      daily_attendance: {
+        Row: {
+          id: string;
+          user_id: string;
+          attendance_date: string;
+          status: AttendanceStatus;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          attendance_date: string;
+          status: AttendanceStatus;
+          note?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          attendance_date?: string;
+          status?: AttendanceStatus;
+          note?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           id: string;
@@ -469,6 +506,7 @@ export type Database = {
       project_priority: ProjectPriority;
       project_member_role: ProjectMemberRole;
       task_status: TaskStatus;
+      attendance_status: AttendanceStatus;
       document_kind: DocumentKind;
       notification_type: NotificationType;
     };

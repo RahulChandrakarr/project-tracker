@@ -7,6 +7,11 @@ import { DayEntryStack } from "@/components/calendar/day-entry-card";
 import { cn } from "@/lib/utils";
 import type { CalendarDaySummary } from "@/lib/calendar/queries";
 import { todayDateKey } from "@/lib/calendar/dates";
+import {
+  ATTENDANCE_STATUS_LABEL,
+  ATTENDANCE_STATUS_STYLE,
+  effectiveAttendance,
+} from "@/lib/calendar/attendance";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -102,6 +107,12 @@ export function MonthGrid({
           const isSelected = day.date === selectedDate;
           const isToday = day.date === today;
           const hasEntries = day.entries.length > 0;
+          const attendance = effectiveAttendance({
+            stored: day.attendance,
+            isPast: day.date <= today,
+            isWeekend: day.isWeekend,
+            isHoliday: Boolean(day.holidayName),
+          });
 
           return (
             // Not a <button>: cells contain interactive children (entry links,
@@ -127,7 +138,19 @@ export function MonthGrid({
                 isSelected && "bg-[var(--color-secondary)]",
               )}
             >
-              <div className="mb-1 flex shrink-0 justify-end">
+              <div className="mb-1 flex shrink-0 items-center justify-between">
+                {attendance ? (
+                  <span
+                    className={cn(
+                      "size-2.5 rounded-full",
+                      ATTENDANCE_STATUS_STYLE[attendance].dot,
+                    )}
+                    title={ATTENDANCE_STATUS_LABEL[attendance]}
+                    aria-label={ATTENDANCE_STATUS_LABEL[attendance]}
+                  />
+                ) : (
+                  <span aria-hidden />
+                )}
                 <span
                   className={cn(
                     "inline-flex size-6 items-center justify-center text-xs font-medium",

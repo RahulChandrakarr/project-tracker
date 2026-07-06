@@ -21,12 +21,16 @@ export function DayDetailDialog({
   detail,
   canEdit,
   projectOptions,
+  userId,
+  attendanceEditable,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   detail: CalendarDayDetail;
   canEdit: boolean;
   projectOptions: CalendarProjectOption[];
+  userId: string;
+  attendanceEditable: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -48,6 +52,8 @@ export function DayDetailDialog({
           detail={detail}
           canEdit={canEdit}
           projectOptions={projectOptions}
+          userId={userId}
+          attendanceEditable={attendanceEditable}
           embedded
         />
       </DialogContent>

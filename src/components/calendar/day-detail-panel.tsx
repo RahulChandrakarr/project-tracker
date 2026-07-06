@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { CompletedTasksList } from "@/components/calendar/completed-tasks-list";
 import { DayTasksEditor } from "@/components/calendar/day-tasks-editor";
+import { AttendanceControl } from "@/components/calendar/attendance-control";
 import { TASK_STATUS_LABEL } from "@/lib/calendar/status";
 import type {
   CalendarDayDetail,
@@ -52,13 +53,34 @@ function DayDetailBody({
   detail,
   canEdit,
   projectOptions,
+  userId,
+  attendanceEditable,
 }: {
   detail: CalendarDayDetail;
   canEdit: boolean;
   projectOptions: CalendarProjectOption[];
+  userId: string;
+  attendanceEditable: boolean;
 }) {
   return (
     <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-3">
+        <h3 className="text-base font-semibold tracking-tight">Attendance</h3>
+        {attendanceEditable ? (
+          <p className="text-sm text-[var(--color-muted-foreground)]">
+            Set attendance for this day. No entry counts as absent.
+          </p>
+        ) : null}
+        <AttendanceControl
+          key={`att-${detail.date}`}
+          userId={userId}
+          date={detail.date}
+          defaultStatus={detail.attendanceStatus}
+          defaultNote={detail.attendanceNote}
+          canEdit={attendanceEditable}
+        />
+      </section>
+
       <section className="flex flex-col gap-3">
         <h3 className="text-base font-semibold tracking-tight">Tasks</h3>
         {canEdit ? (
@@ -90,11 +112,15 @@ export function DayDetailPanel({
   detail,
   canEdit,
   projectOptions,
+  userId,
+  attendanceEditable,
   embedded = false,
 }: {
   detail: CalendarDayDetail;
   canEdit: boolean;
   projectOptions: CalendarProjectOption[];
+  userId: string;
+  attendanceEditable: boolean;
   embedded?: boolean;
 }) {
   const [copied, setCopied] = React.useState(false);
@@ -130,6 +156,8 @@ export function DayDetailPanel({
           detail={detail}
           canEdit={canEdit}
           projectOptions={projectOptions}
+          userId={userId}
+          attendanceEditable={attendanceEditable}
         />
       </div>
     );
@@ -153,6 +181,8 @@ export function DayDetailPanel({
           detail={detail}
           canEdit={canEdit}
           projectOptions={projectOptions}
+          userId={userId}
+          attendanceEditable={attendanceEditable}
         />
       </CardContent>
     </Card>

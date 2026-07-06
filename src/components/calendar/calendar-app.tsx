@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { DayDetailDialog } from "@/components/calendar/day-detail-dialog";
 import { CalendarToolbar, MonthGrid } from "@/components/calendar/month-grid";
+import { AttendanceControl } from "@/components/calendar/attendance-control";
 import { Button } from "@/components/ui/button";
 import { SelectNative } from "@/components/ui/select-native";
 import { todayDateKey } from "@/lib/calendar/dates";
@@ -15,6 +16,7 @@ import type {
   CalendarProjectOption,
   CalendarViewableUser,
 } from "@/lib/calendar/queries";
+import type { AttendanceStatus } from "@/lib/supabase/types";
 
 function buildCalendarHref({
   userId,
@@ -48,6 +50,8 @@ export function CalendarApp({
   selectedDate,
   dayDetail,
   projectOptions,
+  isAppAdmin,
+  todayAttendance,
 }: {
   userId: string;
   currentUserId: string;
@@ -58,9 +62,12 @@ export function CalendarApp({
   selectedDate: string | null;
   dayDetail: CalendarDayDetail | null;
   projectOptions: CalendarProjectOption[];
+  isAppAdmin: boolean;
+  todayAttendance: AttendanceStatus | null;
 }) {
   const router = useRouter();
   const canEdit = userId === currentUserId;
+  const attendanceEditable = canEdit || isAppAdmin;
   const showPicker = canViewOthersCalendars && viewableUsers.length > 1;
   const { year, month } = monthData;
   const dialogOpen = Boolean(selectedDate && dayDetail);
@@ -161,6 +168,20 @@ export function CalendarApp({
         </div>
       </div>
 
+      {canEdit ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3">
+          <span className="text-sm font-medium">Today&apos;s attendance</span>
+          <AttendanceControl
+            key={`today-${todayAttendance ?? "none"}`}
+            userId={currentUserId}
+            date={todayDateKey()}
+            defaultStatus={todayAttendance}
+            canEdit
+            compact
+          />
+        </div>
+      ) : null}
+
       <CalendarToolbar
         year={year}
         month={month}
@@ -188,6 +209,8 @@ export function CalendarApp({
           detail={dayDetail}
           canEdit={canEdit}
           projectOptions={projectOptions}
+          userId={userId}
+          attendanceEditable={attendanceEditable}
         />
       ) : null}
     </div>
