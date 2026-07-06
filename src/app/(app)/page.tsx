@@ -12,12 +12,16 @@ import {
 import { DashboardTasksTable } from "@/components/projects/dashboard-tasks-table";
 import { ProjectsTable } from "@/components/projects/projects-table";
 import { StatCard } from "@/components/projects/stat-card";
+import { AttendanceControl } from "@/components/calendar/attendance-control";
 import { listProjects, matchesCategory } from "@/lib/projects/queries";
 import { listCategories } from "@/lib/categories/queries";
 import {
   listOpenTasks,
   listRecentlyCompletedTasks,
 } from "@/lib/tasks/queries";
+import { getMyAttendance } from "@/lib/calendar/queries";
+import { todayDateKey } from "@/lib/calendar/dates";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { daysUntil } from "@/lib/format";
 
 export default async function DashboardPage({
@@ -27,12 +31,14 @@ export default async function DashboardPage({
 }) {
   const { category } = await searchParams;
 
-  const [allProjects, categories, openTasks, completedTasks] =
+  const [allProjects, categories, openTasks, completedTasks, me, todayAttendance] =
     await Promise.all([
       listProjects(),
       listCategories(),
       listOpenTasks(),
       listRecentlyCompletedTasks(),
+      getCurrentUser(),
+      getMyAttendance(todayDateKey()),
     ]);
 
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
@@ -67,6 +73,25 @@ export default async function DashboardPage({
               <ArrowUpRight />
             </Link>
           </Button>
+        </div>
+      </PageMotionItem>
+
+      <PageMotionItem>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3">
+          <div className="mr-auto">
+            <p className="text-sm font-medium">Today&apos;s attendance</p>
+            <p className="text-xs text-[var(--color-muted-foreground)]">
+              Mark where you are today. No entry counts as absent.
+            </p>
+          </div>
+          <AttendanceControl
+            key={`dash-today-${todayAttendance ?? "none"}`}
+            userId={me.id}
+            date={todayDateKey()}
+            defaultStatus={todayAttendance}
+            canEdit
+            compact
+          />
         </div>
       </PageMotionItem>
 
