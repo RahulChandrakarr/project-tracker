@@ -9,9 +9,11 @@ import {
   getCalendarUserLabel,
   getDayDetail,
   getMyAttendance,
+  getUserNotionEmbed,
   listCalendarProjectOptions,
   listCalendarViewableUsers,
 } from "@/lib/calendar/queries";
+import { getNotionConnectionStatus } from "@/lib/integrations/notion";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +68,8 @@ export default async function CalendarPage({
     canViewOthers,
     projectOptions,
     todayAttendance,
+    notionEmbedUrl,
+    notionConnection,
   ] = await Promise.all([
     getCalendarMonth(targetUserId, year, month),
     listCalendarViewableUsers(),
@@ -73,6 +77,8 @@ export default async function CalendarPage({
     canViewOthersCalendars(),
     canEdit ? listCalendarProjectOptions() : Promise.resolve([]),
     getMyAttendance(todayDateKey()),
+    getUserNotionEmbed(targetUserId),
+    canEdit ? getNotionConnectionStatus(me.id) : Promise.resolve(null),
   ]);
 
   const dayDetail = selectedDate
@@ -94,6 +100,8 @@ export default async function CalendarPage({
           projectOptions={projectOptions}
           isAppAdmin={me.role === "admin"}
           todayAttendance={todayAttendance}
+          notionEmbedUrl={notionEmbedUrl}
+          notionConnection={notionConnection}
         />
       </PageMotionItem>
     </PageMotion>

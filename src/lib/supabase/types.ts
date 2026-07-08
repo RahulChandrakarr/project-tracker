@@ -415,6 +415,37 @@ export type Database = {
         };
         Relationships: [];
       };
+      notion_oauth: {
+        Row: {
+          user_id: string;
+          access_token: string;
+          bot_id: string | null;
+          workspace_id: string | null;
+          workspace_name: string | null;
+          workspace_icon: string | null;
+          connected_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          access_token: string;
+          bot_id?: string | null;
+          workspace_id?: string | null;
+          workspace_name?: string | null;
+          workspace_icon?: string | null;
+          connected_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          access_token?: string;
+          bot_id?: string | null;
+          workspace_id?: string | null;
+          workspace_name?: string | null;
+          workspace_icon?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       daily_attendance: {
         Row: {
           id: string;

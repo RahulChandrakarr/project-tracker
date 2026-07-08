@@ -98,41 +98,56 @@ export async function updateProfileDetails(
   return { ok: true, message: "Profile updated." };
 }
 
-/** Accepts published Notion pages and Notion Calendar links only. */
-function isNotionEmbedUrl(raw: string): boolean {
+/**
+ * Validates a Notion link for embedding. Returns an error message, or null
+ * when the link is acceptable. Private app links (app.notion.com) can't be
+ * iframed — they redirect to login and loop — so they're rejected with
+ * guidance to publish the page instead.
+ */
+function notionEmbedError(raw: string): string | null {
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    return false;
+    return "Enter a valid URL.";
   }
-  if (url.protocol !== "https:") return false;
+  if (url.protocol !== "https:") return "Link must start with https://.";
+
   const host = url.hostname.toLowerCase();
-  return (
+  if (host === "app.notion.com" || host === "www.notion.com" || host === "notion.com") {
+    return "That's a private Notion app link and can't be embedded. In Notion use Share → Publish, then paste the public notion.site link.";
+  }
+
+  const isNotion =
     host === "notion.so" ||
     host.endsWith(".notion.so") ||
     host === "notion.site" ||
-    host.endsWith(".notion.site") ||
-    host === "notion.com" ||
-    host.endsWith(".notion.com")
-  );
+    host.endsWith(".notion.site");
+  if (!isNotion) {
+    return "Enter a Notion link. A published page (a notion.site address) embeds best.";
+  }
+  return null;
 }
 
 /**
- * Saves (or clears, when blank) the signed-in user's Notion embed link. Self
- * only — a personal link, so admins don't set it for others.
+ * Saves (or clears, when blank) a user's Notion embed link. A user sets their
+ * own; app admins can set anyone's (via the calendar user picker).
  */
 export async function updateNotionEmbed(
+  userId: string,
   url: string,
 ): Promise<ProfileFormState> {
-  const me = await getCurrentUser();
-  const trimmed = (url ?? "").trim();
+  if (!z.string().uuid().safeParse(userId).success) {
+    return { ok: false, message: "Invalid user." };
+  }
+  if (!(await canEditProfile(userId))) {
+    return { ok: false, message: "You can only set your own Notion link." };
+  }
 
-  if (trimmed !== "" && !isNotionEmbedUrl(trimmed)) {
-    return {
-      ok: false,
-      message: "Enter a valid Notion link (notion.so or notion.site).",
-    };
+  const trimmed = (url ?? "").trim();
+  if (trimmed !== "") {
+    const error = notionEmbedError(trimmed);
+    if (error) return { ok: false, message: error };
   }
 
   const admin = createSupabaseAdminClient();
@@ -142,10 +157,11 @@ export async function updateNotionEmbed(
       notion_embed_url: trimmed === "" ? null : trimmed,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", me.id);
+    .eq("id", userId);
   if (error) return { ok: false, message: error.message };
 
-  revalidatePath(`/members/${me.id}`);
+  revalidatePath("/calendar");
+  revalidatePath(`/members/${userId}`);
   return {
     ok: true,
     message: trimmed === "" ? "Notion link removed." : "Notion link saved.",

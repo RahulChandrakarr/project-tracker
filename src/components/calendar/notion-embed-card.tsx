@@ -22,9 +22,11 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
  * owner can paste or clear the link; others see the embed read-only.
  */
 export function NotionEmbedCard({
+  userId,
   url,
   canEdit,
 }: {
+  userId: string;
   url: string | null;
   canEdit: boolean;
 }) {
@@ -36,7 +38,7 @@ export function NotionEmbedCard({
   async function save(next: string) {
     setStatus("saving");
     setMessage(null);
-    const result = await updateNotionEmbed(next);
+    const result = await updateNotionEmbed(userId, next);
     if (result.ok) {
       setStatus("saved");
       setMessage(result.message ?? null);
@@ -114,8 +116,9 @@ export function NotionEmbedCard({
               </p>
             ) : (
               <p className="text-xs text-[var(--color-muted-foreground)]">
-                The page must be shared or published to the web for the embed to
-                load. Get the link from Notion&apos;s Share menu.
+                Use a published link: in Notion open Share → Publish → Copy the
+                web link (a notion.site address). Private workspace or app links
+                (app.notion.com) can&apos;t be embedded and will fail to load.
               </p>
             )}
           </div>
@@ -131,15 +134,21 @@ export function NotionEmbedCard({
               referrerPolicy="no-referrer"
               loading="lazy"
             />
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex w-fit items-center gap-1 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
-            >
-              Open in Notion
-              <ExternalLink className="size-3.5" />
-            </a>
+            <div className="flex flex-col gap-1">
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex w-fit items-center gap-1 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+              >
+                Open in Notion
+                <ExternalLink className="size-3.5" />
+              </a>
+              <p className="text-xs text-[var(--color-muted-foreground)]">
+                Showing a redirect or login error above? The page isn&apos;t
+                published — open Share → Publish in Notion and paste that link.
+              </p>
+            </div>
           </div>
         ) : canEdit ? null : (
           <p className="text-sm text-[var(--color-muted-foreground)]">

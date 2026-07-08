@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { DashboardTasksTable } from "@/components/projects/dashboard-tasks-table";
 import { MemberProfileCard } from "@/components/members/member-profile-card";
 import { MemberReport } from "@/components/members/member-report";
-import { NotionEmbedCard } from "@/components/members/notion-embed-card";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import {
   getMemberCompletedTasks,
@@ -90,12 +89,6 @@ export default async function MemberDetailPage({
           canChangePassword={isSelf}
         />
       </PageMotionItem>
-
-      {isSelf || profile.notionEmbedUrl ? (
-        <PageMotionItem>
-          <NotionEmbedCard url={profile.notionEmbedUrl} canEdit={isSelf} />
-        </PageMotionItem>
-      ) : null}
 
       <PageMotionItem>
         <MemberReport report={report} />

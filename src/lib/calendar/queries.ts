@@ -409,6 +409,20 @@ export async function listCalendarViewableUsers(): Promise<CalendarViewableUser[
   return allowed;
 }
 
+/** The viewed user's Notion embed link (null if unset). */
+export async function getUserNotionEmbed(
+  userId: string,
+): Promise<string | null> {
+  const { supabase } = await resolveClient(userId);
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("notion_embed_url")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.notion_embed_url ?? null;
+}
+
 /** The signed-in user's stored attendance for a day (null if unset). */
 export async function getMyAttendance(
   dateKey: string,

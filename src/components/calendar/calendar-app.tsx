@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { DayDetailDialog } from "@/components/calendar/day-detail-dialog";
 import { CalendarToolbar, MonthGrid } from "@/components/calendar/month-grid";
 import { AttendanceControl } from "@/components/calendar/attendance-control";
+import { NotionEmbedCard } from "@/components/calendar/notion-embed-card";
+import { NotionApiCard } from "@/components/calendar/notion-api-card";
 import { Button } from "@/components/ui/button";
 import { SelectNative } from "@/components/ui/select-native";
 import { todayDateKey } from "@/lib/calendar/dates";
@@ -17,6 +19,7 @@ import type {
   CalendarViewableUser,
 } from "@/lib/calendar/queries";
 import type { AttendanceStatus } from "@/lib/supabase/types";
+import type { NotionConnectionStatus } from "@/lib/integrations/notion";
 
 function buildCalendarHref({
   userId,
@@ -52,6 +55,8 @@ export function CalendarApp({
   projectOptions,
   isAppAdmin,
   todayAttendance,
+  notionEmbedUrl,
+  notionConnection,
 }: {
   userId: string;
   currentUserId: string;
@@ -64,6 +69,8 @@ export function CalendarApp({
   projectOptions: CalendarProjectOption[];
   isAppAdmin: boolean;
   todayAttendance: AttendanceStatus | null;
+  notionEmbedUrl: string | null;
+  notionConnection: NotionConnectionStatus | null;
 }) {
   const router = useRouter();
   const canEdit = userId === currentUserId;
@@ -199,6 +206,18 @@ export function CalendarApp({
         selectedDate={selectedDate}
         onSelectDate={(date) => navigate({ date })}
       />
+
+      {canEdit && notionConnection ? (
+        <NotionApiCard status={notionConnection} />
+      ) : null}
+
+      {attendanceEditable || notionEmbedUrl ? (
+        <NotionEmbedCard
+          userId={userId}
+          url={notionEmbedUrl}
+          canEdit={attendanceEditable}
+        />
+      ) : null}
 
       {dayDetail ? (
         <DayDetailDialog
